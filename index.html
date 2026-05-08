@@ -3,37 +3,90 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>ZenTask | Premium Productivity</title>
-    <meta name="description" content="A high-fidelity, premium productivity tool for focused minds." />
+    <title>ZenTask Pro | Advanced Productivity</title>
+    <meta name="description" content="A professional-grade productivity tool with smart sorting and deep work focus." />
     <link rel="stylesheet" href="/src/style.css" />
   </head>
   <body>
     <div id="app">
       <div class="main-card">
         <header>
-          <h1>ZenTask</h1>
+          <div class="header-top">
+            <h1>ZenTask Pro</h1>
+            <button id="focus-toggle" class="focus-btn" title="Start Focus Mode">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+              Focus
+            </button>
+          </div>
           
-          <div class="progress-container">
-            <div class="progress-info">
-              <span id="task-count">0 tasks</span>
-              <span id="progress-percent">0% done</span>
+          <div class="stats-grid">
+            <div class="stat-item">
+              <span class="stat-label">Pending</span>
+              <span class="stat-value" id="pending-count">0</span>
             </div>
+            <div class="stat-item">
+              <span class="stat-label">Urgent</span>
+              <span class="stat-value" id="urgent-count" data-type="urgent">0</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-label">Done</span>
+              <span class="stat-value" id="done-count" data-type="done">0</span>
+            </div>
+          </div>
+
+          <div class="progress-container">
             <div class="progress-bar">
               <div class="progress-fill" id="progress-fill"></div>
             </div>
           </div>
         </header>
 
-        <div class="input-wrapper">
-          <input type="text" id="todo-input" placeholder="Enter a new mission..." autocomplete="off" />
-          <button class="add-btn" id="add-btn">Add</button>
+        <div class="creation-area">
+          <div class="input-row">
+            <input type="text" id="todo-input" placeholder="What's the mission?" autocomplete="off" />
+          </div>
+          <div class="meta-row">
+            <input type="date" id="todo-date" />
+            <input type="time" id="todo-time" />
+            <select id="todo-priority">
+              <option value="low">Low Priority</option>
+              <option value="medium" selected>Medium Priority</option>
+              <option value="high">High Priority</option>
+            </select>
+            <button class="add-btn" id="add-btn">Add Task</button>
+          </div>
+        </div>
+
+        <div class="filter-bar">
+          <div class="search-box">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+            <input type="text" id="search-input" placeholder="Search tasks..." />
+          </div>
+          <div class="filter-tabs">
+            <button class="tab active" data-filter="all">All</button>
+            <button class="tab" data-filter="pending">Active</button>
+            <button class="tab" data-filter="completed">Done</button>
+          </div>
         </div>
 
         <ul class="todo-list" id="todo-list">
-          <!-- Empty state will be shown here by JS if needed -->
+          <!-- Tasks injected here -->
         </ul>
       </div>
     </div>
+
+    <!-- Focus Mode Overlay -->
+    <div id="focus-overlay" class="focus-overlay hidden">
+      <div class="focus-content">
+        <h2 id="focus-task-title">Deep Work Session</h2>
+        <div class="timer" id="focus-timer">25:00</div>
+        <div class="focus-actions">
+          <button id="focus-complete" class="focus-done">Task Complete</button>
+          <button id="focus-exit" class="focus-cancel">Exit Focus</button>
+        </div>
+      </div>
+    </div>
+
     <script type="module" src="/src/main.js"></script>
   </body>
 </html>
