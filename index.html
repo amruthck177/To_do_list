@@ -3,64 +3,105 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>ZenTask Pro | Advanced Productivity</title>
-    <meta name="description" content="A professional-grade productivity tool with smart sorting and deep work focus." />
+    <title>ZenTask Pro | Premium Productivity</title>
+    <meta name="description" content="A hyper-refined productivity suite with smart analytics, focus modes, and advanced task management." />
     <link rel="stylesheet" href="/src/style.css" />
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
   </head>
-  <body>
+  <body class="theme-midnight">
     <div id="app">
-      <div class="main-card">
+      <div class="main-card glass-container">
         <header>
           <div class="header-top">
-            <h1>ZenTask Pro</h1>
-            <button id="focus-toggle" class="focus-btn" title="Start Focus Mode">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
-              Focus
-            </button>
+            <div class="brand">
+              <h1>ZenTask Pro</h1>
+              <span class="version">v2.0</span>
+            </div>
+            <div class="header-actions">
+              <button id="theme-btn" class="icon-btn" title="Switch Theme">
+                <i data-lucide="palette"></i>
+              </button>
+              <button id="focus-toggle" class="focus-btn" title="Start Focus Mode">
+                <i data-lucide="zap"></i>
+                <span>Focus</span>
+              </button>
+            </div>
           </div>
           
-          <div class="stats-grid">
-            <div class="stat-item">
-              <span class="stat-label">Pending</span>
+          <div class="stats-dashboard">
+            <div class="stat-card">
+              <span class="stat-label">Active</span>
               <span class="stat-value" id="pending-count">0</span>
             </div>
-            <div class="stat-item">
+            <div class="stat-card urgent">
               <span class="stat-label">Urgent</span>
-              <span class="stat-value" id="urgent-count" data-type="urgent">0</span>
+              <span class="stat-value" id="urgent-count">0</span>
             </div>
-            <div class="stat-item">
+            <div class="stat-card success">
               <span class="stat-label">Done</span>
-              <span class="stat-value" id="done-count" data-type="done">0</span>
+              <span class="stat-value" id="done-count">0</span>
             </div>
           </div>
 
-          <div class="progress-container">
-            <div class="progress-bar">
+          <div class="progress-section">
+            <div class="progress-info">
+              <span>Overall Progress</span>
+              <span id="progress-text">0%</span>
+            </div>
+            <div class="progress-bar-wrap">
               <div class="progress-fill" id="progress-fill"></div>
             </div>
           </div>
         </header>
 
         <div class="creation-area">
-          <div class="input-row">
+          <div class="input-container">
+            <i data-lucide="plus-circle"></i>
             <input type="text" id="todo-input" placeholder="What's the mission?" autocomplete="off" />
           </div>
-          <div class="meta-row">
-            <input type="date" id="todo-date" />
-            <input type="time" id="todo-time" />
-            <select id="todo-priority">
-              <option value="low">Low Priority</option>
-              <option value="medium" selected>Medium Priority</option>
-              <option value="high">High Priority</option>
-            </select>
-            <button class="add-btn" id="add-btn">Add Task</button>
+          <div class="meta-options">
+            <div class="meta-group">
+              <div class="meta-item">
+                <i data-lucide="calendar"></i>
+                <input type="date" id="todo-date" />
+              </div>
+              <div class="meta-item">
+                <i data-lucide="clock"></i>
+                <input type="time" id="todo-time" />
+              </div>
+            </div>
+            <div class="meta-group">
+              <div class="meta-item">
+                <i data-lucide="tag"></i>
+                <select id="todo-tag">
+                  <option value="none">No Tag</option>
+                  <option value="work">Work</option>
+                  <option value="personal">Personal</option>
+                  <option value="health">Health</option>
+                  <option value="finance">Finance</option>
+                </select>
+              </div>
+              <div class="meta-item">
+                <i data-lucide="shield-alert"></i>
+                <select id="todo-priority">
+                  <option value="low">Low</option>
+                  <option value="medium" selected>Medium</option>
+                  <option value="high">High</option>
+                </select>
+              </div>
+            </div>
+            <button class="add-btn" id="add-btn">
+              <span>Launch</span>
+              <i data-lucide="arrow-right"></i>
+            </button>
           </div>
         </div>
 
-        <div class="filter-bar">
-          <div class="search-box">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-            <input type="text" id="search-input" placeholder="Search tasks..." />
+        <div class="control-bar">
+          <div class="search-wrap">
+            <i data-lucide="search"></i>
+            <input type="text" id="search-input" placeholder="Find a task..." />
           </div>
           <div class="filter-tabs">
             <button class="tab active" data-filter="all">All</button>
@@ -69,24 +110,62 @@
           </div>
         </div>
 
-        <ul class="todo-list" id="todo-list">
-          <!-- Tasks injected here -->
-        </ul>
+        <div class="list-container">
+          <ul class="todo-list" id="todo-list">
+            <!-- Tasks injected here -->
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- Theme Selector Modal -->
+    <div id="theme-modal" class="modal hidden">
+      <div class="modal-content glass-container">
+        <h3>Select Appearance</h3>
+        <div class="theme-grid">
+          <button class="theme-option" data-theme="theme-midnight">
+            <div class="theme-preview midnight"></div>
+            <span>Midnight</span>
+          </button>
+          <button class="theme-option" data-theme="theme-aurora">
+            <div class="theme-preview aurora"></div>
+            <span>Aurora</span>
+          </button>
+          <button class="theme-option" data-theme="theme-crimson">
+            <div class="theme-preview crimson"></div>
+            <span>Crimson</span>
+          </button>
+          <button class="theme-option" data-theme="theme-arctic">
+            <div class="theme-preview arctic"></div>
+            <span>Arctic</span>
+          </button>
+        </div>
+        <button class="modal-close" id="close-theme-modal">Done</button>
       </div>
     </div>
 
     <!-- Focus Mode Overlay -->
     <div id="focus-overlay" class="focus-overlay hidden">
       <div class="focus-content">
-        <h2 id="focus-task-title">Deep Work Session</h2>
-        <div class="timer" id="focus-timer">25:00</div>
+        <div class="focus-header">
+          <i data-lucide="brain" class="focus-icon"></i>
+          <h2 id="focus-task-title">Deep Work Session</h2>
+        </div>
+        <div class="timer-container">
+          <div class="timer" id="focus-timer">25:00</div>
+          <div class="timer-subtext">Stay focused, remain calm.</div>
+        </div>
         <div class="focus-actions">
-          <button id="focus-complete" class="focus-done">Task Complete</button>
-          <button id="focus-exit" class="focus-cancel">Exit Focus</button>
+          <button id="focus-complete" class="btn-primary">Mission Complete</button>
+          <button id="focus-exit" class="btn-ghost">Exit Focus</button>
         </div>
       </div>
     </div>
 
     <script type="module" src="/src/main.js"></script>
+    <script>
+      // Initialize Lucide icons
+      lucide.createIcons();
+    </script>
   </body>
 </html>

@@ -1,61 +1,95 @@
-// ZenTask Pro - Full-Stack Implementation
-const API_URL = 'http://localhost:3001/api/tasks';
+/**
+ * ZenTask Pro v2.0
+ * Premium Productivity Suite
+ */
 
+const API_URL = 'http://localhost:3001/api/tasks';
 let tasks = [];
 let currentFilter = 'all';
 let focusTimerInterval = null;
+let focusTimeRemaining = 25 * 60;
+let sortable = null;
 
-// UI Elements
-const todoList = document.getElementById('todo-list');
-const todoInput = document.getElementById('todo-input');
-const todoDate = document.getElementById('todo-date');
-const todoTime = document.getElementById('todo-time');
-const todoPriority = document.getElementById('todo-priority');
-const addBtn = document.getElementById('add-btn');
-const progressFill = document.getElementById('progress-fill');
-const pendingCount = document.getElementById('pending-count');
-const urgentCount = document.getElementById('urgent-count');
-const doneCount = document.getElementById('done-count');
-const searchInput = document.getElementById('search-input');
-const filterTabs = document.querySelectorAll('.tab');
+// DOM Elements
+const elements = {
+  todoList: document.getElementById('todo-list'),
+  todoInput: document.getElementById('todo-input'),
+  todoDate: document.getElementById('todo-date'),
+  todoTime: document.getElementById('todo-time'),
+  todoTag: document.getElementById('todo-tag'),
+  todoPriority: document.getElementById('todo-priority'),
+  addBtn: document.getElementById('add-btn'),
+  progressFill: document.getElementById('progress-fill'),
+  progressText: document.getElementById('progress-text'),
+  pendingCount: document.getElementById('pending-count'),
+  urgentCount: document.getElementById('urgent-count'),
+  doneCount: document.getElementById('done-count'),
+  searchInput: document.getElementById('search-input'),
+  filterTabs: document.querySelectorAll('.tab'),
+  themeBtn: document.getElementById('theme-btn'),
+  themeModal: document.getElementById('theme-modal'),
+  closeThemeModal: document.getElementById('close-theme-modal'),
+  themeOptions: document.querySelectorAll('.theme-option'),
+  focusToggle: document.getElementById('focus-toggle'),
+  focusOverlay: document.getElementById('focus-overlay'),
+  focusTimer: document.getElementById('focus-timer'),
+  focusExit: document.getElementById('focus-exit'),
+  focusComplete: document.getElementById('focus-complete'),
+  focusTaskTitle: document.getElementById('focus-task-title'),
+};
 
-// Focus Elements
-const focusToggle = document.getElementById('focus-toggle');
-const focusOverlay = document.getElementById('focus-overlay');
-const focusTimer = document.getElementById('focus-timer');
-const focusExit = document.getElementById('focus-exit');
-const focusComplete = document.getElementById('focus-complete');
-const focusTaskTitle = document.getElementById('focus-task-title');
+// --- Initialization ---
 
-// Fetch Tasks from Backend
+const init = async () => {
+  setupEventListeners();
+  setupSortable();
+  loadTheme();
+  await fetchTasks();
+  lucide.createIcons();
+};
+
+const setupSortable = () => {
+  sortable = new Sortable(elements.todoList, {
+    animation: 150,
+    ghostClass: 'dragging',
+    onEnd: () => {
+      // Logic for persisting manual sort could go here
+      // For now, we just allow the visual reorder
+    }
+  });
+};
+
+// --- API Calls ---
+
 const fetchTasks = async () => {
   try {
     const res = await fetch(API_URL);
+    if (!res.ok) throw new Error('Network response was not ok');
     tasks = await res.json();
     renderTasks();
   } catch (err) {
-    console.error('Failed to fetch tasks:', err);
-    // Fallback to local storage if server is down
-    tasks = JSON.parse(localStorage.getItem('zentasks_v3')) || [];
+    console.error('Fetch failed, using local fallback:', err);
+    tasks = JSON.parse(localStorage.getItem('zentasks_v2')) || [];
     renderTasks();
   }
 };
 
-// Save Task to Backend
 const saveTask = async (task) => {
   try {
-    await fetch(API_URL, {
+    const res = await fetch(API_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(task)
     });
-    fetchTasks();
+    const newTask = await res.json();
+    tasks.unshift(newTask);
+    syncLocalStorage();
+    renderTasks();
   } catch (err) {
-    console.error('Failed to save task:', err);
+    console.error('Save failed:', err);
   }
 };
 
-// Update Task in Backend
 const updateTaskInDB = async (id, updates) => {
   try {
     await fetch(`${API_URL}/${id}`, {
@@ -63,23 +97,32 @@ const updateTaskInDB = async (id, updates) => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(updates)
     });
-    fetchTasks();
+    const index = tasks.findIndex(t => t.id === id);
+    if (index !== -1) tasks[index] = { ...tasks[index], ...updates };
+    syncLocalStorage();
+    renderTasks();
   } catch (err) {
-    console.error('Failed to update task:', err);
+    console.error('Update failed:', err);
   }
 };
 
-// Delete Task from Backend
 const deleteTask = async (id) => {
   try {
     await fetch(`${API_URL}/${id}`, { method: 'DELETE' });
-    fetchTasks();
+    tasks = tasks.filter(t => t.id !== id);
+    syncLocalStorage();
+    renderTasks();
   } catch (err) {
-    console.error('Failed to delete task:', err);
+    console.error('Delete failed:', err);
   }
 };
 
-// Smart Sorting
+const syncLocalStorage = () => {
+  localStorage.setItem('zentasks_v2', JSON.stringify(tasks));
+};
+
+// --- Logic ---
+
 const getSortedTasks = () => {
   const priorityMap = { high: 0, medium: 1, low: 2 };
   return [...tasks].sort((a, b) => {
@@ -91,46 +134,63 @@ const getSortedTasks = () => {
   });
 };
 
-// Render Logic
 const renderTasks = () => {
   const sorted = getSortedTasks();
   const filtered = sorted.filter(t => {
-    const matchesSearch = t.text.toLowerCase().includes(searchInput.value.toLowerCase());
+    const query = elements.searchInput.value.toLowerCase();
+    const matchesSearch = t.text.toLowerCase().includes(query) || 
+                         (t.tag && t.tag.toLowerCase().includes(query));
     const matchesTab = currentFilter === 'all' || 
                        (currentFilter === 'pending' && !t.completed) || 
                        (currentFilter === 'completed' && t.completed);
     return matchesSearch && matchesTab;
   });
 
-  todoList.innerHTML = '';
+  elements.todoList.innerHTML = '';
   filtered.forEach(task => {
-    const li = document.createElement('li');
-    li.className = `todo-item ${task.priority} ${task.completed ? 'completed' : ''}`;
-    
-    const dateStr = task.date ? new Date(task.date).toLocaleDateString() : 'No date';
-    const timeStr = task.time || '';
-
-    li.innerHTML = `
-      <div class="checkbox-pro" onclick="toggleTask(${task.id})">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
-          <polyline points="20 6 9 17 4 12"></polyline>
-        </svg>
-      </div>
-      <div class="todo-main-info">
-        <span class="todo-text">${task.text}</span>
-        <div class="todo-meta">
-          <span class="priority-tag ${task.priority}">${task.priority}</span>
-          <span>${dateStr} ${timeStr}</span>
-        </div>
-      </div>
-      <button class="delete-pro" onclick="removeTask(${task.id})">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"></path><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path></svg>
-      </button>
-    `;
-    todoList.appendChild(li);
+    const li = createTaskElement(task);
+    elements.todoList.appendChild(li);
   });
 
   updateStats();
+  lucide.createIcons();
+};
+
+const createTaskElement = (task) => {
+  const li = document.createElement('li');
+  li.className = `todo-item ${task.priority} ${task.completed ? 'completed' : ''}`;
+  li.dataset.id = task.id;
+
+  const dateStr = task.date ? new Date(task.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : '';
+  const tagHtml = task.tag && task.tag !== 'none' ? `<span class="badge tag-badge">${task.tag}</span>` : '';
+
+  li.innerHTML = `
+    <div class="todo-checkbox">
+      <i data-lucide="check"></i>
+    </div>
+    <div class="todo-content">
+      <span class="todo-title">${task.text}</span>
+      <div class="todo-details">
+        <span class="badge priority-${task.priority}">${task.priority}</span>
+        ${tagHtml}
+        ${dateStr ? `<span><i data-lucide="calendar" style="width:10px;display:inline"></i> ${dateStr} ${task.time || ''}</span>` : ''}
+      </div>
+    </div>
+    <div class="item-actions">
+      <button class="action-btn delete" title="Delete Task">
+        <i data-lucide="trash-2"></i>
+      </button>
+    </div>
+  `;
+
+  // Attach events directly to avoid global scope pollution
+  li.querySelector('.todo-checkbox').addEventListener('click', () => toggleTask(task.id));
+  li.querySelector('.delete').addEventListener('click', (e) => {
+    e.stopPropagation();
+    deleteTask(task.id);
+  });
+
+  return li;
 };
 
 const updateStats = () => {
@@ -140,66 +200,66 @@ const updateStats = () => {
   const urgent = tasks.filter(t => t.priority === 'high' && !t.completed).length;
   const percent = total === 0 ? 0 : Math.round((completed / total) * 100);
 
-  pendingCount.innerText = pending;
-  urgentCount.innerText = urgent;
-  doneCount.innerText = completed;
-  progressFill.style.width = `${percent}%`;
+  elements.pendingCount.innerText = pending;
+  elements.urgentCount.innerText = urgent;
+  elements.doneCount.innerText = completed;
+  elements.progressFill.style.width = `${percent}%`;
+  elements.progressText.innerText = `${percent}%`;
 };
 
-// Event Handlers
-const addTask = () => {
-  const text = todoInput.value.trim();
-  if (text) {
-    const newTask = {
-      text,
-      date: todoDate.value,
-      time: todoTime.value,
-      priority: todoPriority.value,
-      completed: false
-    };
-    saveTask(newTask);
-    todoInput.value = '';
-    todoDate.value = '';
-    todoTime.value = '';
-  }
-};
+// --- Actions ---
 
-window.toggleTask = (id) => {
+const toggleTask = (id) => {
   const task = tasks.find(t => t.id === id);
   if (task) {
     updateTaskInDB(id, { completed: !task.completed });
   }
 };
 
-window.removeTask = (id) => {
-  deleteTask(id);
+const handleAddTask = () => {
+  const text = elements.todoInput.value.trim();
+  if (text) {
+    const newTask = {
+      text,
+      date: elements.todoDate.value,
+      time: elements.todoTime.value,
+      tag: elements.todoTag.value,
+      priority: elements.todoPriority.value,
+      completed: false
+    };
+    saveTask(newTask);
+    elements.todoInput.value = '';
+    elements.todoDate.value = '';
+    elements.todoTime.value = '';
+    elements.todoTag.value = 'none';
+    elements.todoPriority.value = 'medium';
+  }
 };
 
-// Filter & Search
-searchInput.addEventListener('input', renderTasks);
-filterTabs.forEach(tab => {
-  tab.addEventListener('click', () => {
-    filterTabs.forEach(t => t.classList.remove('active'));
-    tab.classList.add('active');
-    currentFilter = tab.dataset.filter;
-    renderTasks();
-  });
-});
+// --- Theme Management ---
 
-addBtn.addEventListener('click', addTask);
-todoInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') addTask(); });
+const loadTheme = () => {
+  const savedTheme = localStorage.getItem('zentask-theme') || 'theme-midnight';
+  document.body.className = savedTheme;
+};
 
-// Focus Mode Logic
-let focusTimeRemaining = 25 * 60;
+const setTheme = (theme) => {
+  document.body.className = theme;
+  localStorage.setItem('zentask-theme', theme);
+  elements.themeModal.classList.add('hidden');
+};
+
+// --- Focus Mode ---
+
 const startFocusMode = () => {
   const topTask = tasks.find(t => !t.completed && t.priority === 'high') || tasks.find(t => !t.completed);
   if (!topTask) {
-    alert('Add some missions first!');
+    showNotification('No active missions found. Add a task to start focusing.', 'info');
     return;
   }
   
-  focusTaskTitle.innerText = `Focus: ${topTask.text}`;
-  focusOverlay.classList.remove('hidden');
+  elements.focusTaskTitle.innerText = topTask.text;
+  elements.focusOverlay.classList.remove('hidden');
   
   focusTimeRemaining = 25 * 60;
   updateTimerDisplay();
@@ -209,7 +269,7 @@ const startFocusMode = () => {
     updateTimerDisplay();
     if (focusTimeRemaining <= 0) {
       clearInterval(focusTimerInterval);
-      alert('Focus session complete!');
+      showNotification('Focus session complete! Take a break.', 'success');
     }
   }, 1000);
 };
@@ -217,23 +277,75 @@ const startFocusMode = () => {
 const updateTimerDisplay = () => {
   const mins = Math.floor(focusTimeRemaining / 60);
   const secs = focusTimeRemaining % 60;
-  focusTimer.innerText = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  elements.focusTimer.innerText = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
 };
 
-focusToggle.addEventListener('click', startFocusMode);
-focusExit.addEventListener('click', () => {
-  clearInterval(focusTimerInterval);
-  focusOverlay.classList.add('hidden');
-});
-focusComplete.addEventListener('click', () => {
-  const topTask = tasks.find(t => !t.completed && t.priority === 'high') || tasks.find(t => !t.completed);
-  if (topTask) {
-    updateTaskInDB(topTask.id, { completed: true });
-  }
-  clearInterval(focusTimerInterval);
-  focusOverlay.classList.add('hidden');
-});
+// --- Notifications ---
 
-// Init
-fetchTasks();
-setInterval(fetchTasks, 5000); // Polling for "strong" backend updates
+const notifyContainer = document.createElement('div');
+notifyContainer.className = 'notification-container';
+document.body.appendChild(notifyContainer);
+
+const showNotification = (msg, type = 'info') => {
+  const notify = document.createElement('div');
+  notify.className = `notification ${type}`;
+  
+  const icons = {
+    success: 'check-circle',
+    info: 'info',
+    error: 'alert-circle'
+  };
+
+  notify.innerHTML = `
+    <i data-lucide="${icons[type] || 'info'}"></i>
+    <span>${msg}</span>
+  `;
+  
+  notifyContainer.appendChild(notify);
+  lucide.createIcons();
+
+  setTimeout(() => {
+    notify.classList.add('fade-out');
+    setTimeout(() => notify.remove(), 500);
+  }, 4000);
+};
+
+// --- Event Listeners ---
+
+const setupEventListeners = () => {
+  elements.addBtn.addEventListener('click', handleAddTask);
+  elements.todoInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') handleAddTask(); });
+  elements.searchInput.addEventListener('input', renderTasks);
+
+  elements.filterTabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+      elements.filterTabs.forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      currentFilter = tab.dataset.filter;
+      renderTasks();
+    });
+  });
+
+  elements.themeBtn.addEventListener('click', () => elements.themeModal.classList.remove('hidden'));
+  elements.closeThemeModal.addEventListener('click', () => elements.themeModal.classList.add('hidden'));
+  elements.themeOptions.forEach(opt => {
+    opt.addEventListener('click', () => setTheme(opt.dataset.theme));
+  });
+
+  elements.focusToggle.addEventListener('click', startFocusMode);
+  elements.focusExit.addEventListener('click', () => {
+    clearInterval(focusTimerInterval);
+    elements.focusOverlay.classList.add('hidden');
+  });
+  
+  elements.focusComplete.addEventListener('click', () => {
+    const currentTitle = elements.focusTaskTitle.innerText;
+    const task = tasks.find(t => t.text === currentTitle && !t.completed);
+    if (task) toggleTask(task.id);
+    clearInterval(focusTimerInterval);
+    elements.focusOverlay.classList.add('hidden');
+  });
+};
+
+// Start the app
+init();
