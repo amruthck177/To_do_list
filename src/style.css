@@ -530,6 +530,120 @@ body::after {
   border: 1px solid var(--border-color);
 }
 
+.sub-badge {
+  background: rgba(139, 92, 246, 0.1);
+  color: var(--primary);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* Sub-tasks UI */
+.subtask-container {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border-color);
+  animation: slideDown 0.3s ease-out;
+}
+
+.subtask-container.hidden {
+  display: none;
+}
+
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.subtask-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  margin-bottom: 1rem;
+}
+
+.subtask-item {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  padding: 0.5rem 0.8rem;
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 10px;
+  font-size: 0.9rem;
+  transition: var(--transition);
+}
+
+.subtask-item:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.subtask-item.done span {
+  text-decoration: line-through;
+  opacity: 0.5;
+}
+
+.sub-check {
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--border-color);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.sub-check.checked {
+  background: var(--primary);
+  border-color: var(--primary);
+}
+
+.sub-del {
+  margin-left: auto;
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  opacity: 0.3;
+  transition: var(--transition);
+}
+
+.subtask-item:hover .sub-del {
+  opacity: 1;
+}
+
+.sub-del:hover {
+  color: var(--urgent);
+}
+
+.subtask-add {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.sub-input {
+  flex: 1;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  padding: 0.5rem 0.8rem;
+  color: #fff;
+  font-size: 0.85rem;
+  outline: none;
+}
+
+.sub-add-btn {
+  background: var(--primary);
+  color: #fff;
+  border: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
 .item-actions {
   display: flex;
   gap: 0.5rem;

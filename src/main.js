@@ -1,6 +1,6 @@
 /**
- * ZenTask Pro v2.0
- * Premium Productivity Suite
+ * ZenTask Pro v2.1
+ * Advanced Persistence & Sub-tasks
  */
 
 const API_URL = 'http://localhost:3001/api/tasks';
@@ -9,6 +9,7 @@ let currentFilter = 'all';
 let focusTimerInterval = null;
 let focusTimeRemaining = 25 * 60;
 let sortable = null;
+let isUpdatingOrder = false;
 
 // DOM Elements
 const elements = {
@@ -45,23 +46,54 @@ const init = async () => {
   setupSortable();
   loadTheme();
   await fetchTasks();
-  lucide.createIcons();
 };
 
 const setupSortable = () => {
   sortable = new Sortable(elements.todoList, {
-    animation: 150,
+    animation: 250,
     ghostClass: 'dragging',
-    onEnd: () => {
-      // Logic for persisting manual sort could go here
-      // For now, we just allow the visual reorder
+    handle: '.todo-content', // Only drag by content area
+    onEnd: async () => {
+      await persistNewOrder();
     }
   });
+};
+
+const persistNewOrder = async () => {
+  if (isUpdatingOrder) return;
+  isUpdatingOrder = true;
+
+  const itemEls = Array.from(elements.todoList.querySelectorAll('.todo-item'));
+  const newOrders = itemEls.map((el, index) => ({
+    id: parseInt(el.dataset.id),
+    order: index
+  }));
+
+  // Optimistic update of local tasks
+  newOrders.forEach(({ id, order }) => {
+    const task = tasks.find(t => t.id === id);
+    if (task) task.order = order;
+  });
+
+  try {
+    await fetch(`${API_URL}/reorder`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ orders: newOrders })
+    });
+    showNotification('Order saved', 'success');
+  } catch (err) {
+    console.error('Failed to save order:', err);
+    showNotification('Order sync failed', 'error');
+  } finally {
+    isUpdatingOrder = false;
+  }
 };
 
 // --- API Calls ---
 
 const fetchTasks = async () => {
+  if (isUpdatingOrder) return; // Don't fetch while we are reordering
   try {
     const res = await fetch(API_URL);
     if (!res.ok) throw new Error('Network response was not ok');
@@ -85,35 +117,54 @@ const saveTask = async (task) => {
     tasks.unshift(newTask);
     syncLocalStorage();
     renderTasks();
+    showNotification('Mission Launched', 'success');
   } catch (err) {
     console.error('Save failed:', err);
+    showNotification('Failed to launch mission', 'error');
   }
 };
 
 const updateTaskInDB = async (id, updates) => {
-  try {
-    await fetch(`${API_URL}/${id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(updates)
-    });
-    const index = tasks.findIndex(t => t.id === id);
-    if (index !== -1) tasks[index] = { ...tasks[index], ...updates };
-    syncLocalStorage();
+  // Optimistic UI Update
+  const index = tasks.findIndex(t => t.id === id);
+  if (index !== -1) {
+    const oldTask = { ...tasks[index] };
+    tasks[index] = { ...tasks[index], ...updates };
     renderTasks();
-  } catch (err) {
-    console.error('Update failed:', err);
+
+    try {
+      await fetch(`${API_URL}/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates)
+      });
+      syncLocalStorage();
+    } catch (err) {
+      console.error('Update failed, rolling back:', err);
+      tasks[index] = oldTask;
+      renderTasks();
+      showNotification('Sync failed', 'error');
+    }
   }
 };
 
 const deleteTask = async (id) => {
-  try {
-    await fetch(`${API_URL}/${id}`, { method: 'DELETE' });
+  const index = tasks.findIndex(t => t.id === id);
+  if (index !== -1) {
+    const deletedTask = tasks[index];
     tasks = tasks.filter(t => t.id !== id);
-    syncLocalStorage();
     renderTasks();
-  } catch (err) {
-    console.error('Delete failed:', err);
+
+    try {
+      await fetch(`${API_URL}/${id}`, { method: 'DELETE' });
+      syncLocalStorage();
+      showNotification('Mission Aborted', 'info');
+    } catch (err) {
+      console.error('Delete failed, rolling back:', err);
+      tasks.splice(index, 0, deletedTask);
+      renderTasks();
+      showNotification('Abort failed', 'error');
+    }
   }
 };
 
@@ -123,29 +174,20 @@ const syncLocalStorage = () => {
 
 // --- Logic ---
 
-const getSortedTasks = () => {
-  const priorityMap = { high: 0, medium: 1, low: 2 };
-  return [...tasks].sort((a, b) => {
-    if (a.completed !== b.completed) return a.completed ? 1 : -1;
-    if (priorityMap[a.priority] !== priorityMap[b.priority]) {
-      return priorityMap[a.priority] - priorityMap[b.priority];
-    }
-    return new Date(a.date || '9999-12-31') - new Date(b.date || '9999-12-31');
-  });
-};
-
-const renderTasks = () => {
-  const sorted = getSortedTasks();
-  const filtered = sorted.filter(t => {
-    const query = elements.searchInput.value.toLowerCase();
+const getFilteredTasks = () => {
+  const query = elements.searchInput.value.toLowerCase();
+  return tasks.filter(t => {
     const matchesSearch = t.text.toLowerCase().includes(query) || 
                          (t.tag && t.tag.toLowerCase().includes(query));
     const matchesTab = currentFilter === 'all' || 
                        (currentFilter === 'pending' && !t.completed) || 
                        (currentFilter === 'completed' && t.completed);
     return matchesSearch && matchesTab;
-  });
+  }).sort((a, b) => (a.order || 0) - (b.order || 0));
+};
 
+const renderTasks = () => {
+  const filtered = getFilteredTasks();
   elements.todoList.innerHTML = '';
   filtered.forEach(task => {
     const li = createTaskElement(task);
@@ -163,27 +205,89 @@ const createTaskElement = (task) => {
 
   const dateStr = task.date ? new Date(task.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : '';
   const tagHtml = task.tag && task.tag !== 'none' ? `<span class="badge tag-badge">${task.tag}</span>` : '';
+  
+  // Sub-tasks summary
+  const totalSub = task.subtasks?.length || 0;
+  const doneSub = task.subtasks?.filter(s => s.completed).length || 0;
+  const subHtml = totalSub > 0 ? `<span class="badge sub-badge"><i data-lucide="layers" style="width:10px"></i> ${doneSub}/${totalSub}</span>` : '';
 
   li.innerHTML = `
     <div class="todo-checkbox">
       <i data-lucide="check"></i>
     </div>
     <div class="todo-content">
-      <span class="todo-title">${task.text}</span>
-      <div class="todo-details">
-        <span class="badge priority-${task.priority}">${task.priority}</span>
-        ${tagHtml}
-        ${dateStr ? `<span><i data-lucide="calendar" style="width:10px;display:inline"></i> ${dateStr} ${task.time || ''}</span>` : ''}
+      <div class="todo-main-row">
+        <span class="todo-title">${task.text}</span>
+        <div class="todo-details">
+          <span class="badge priority-${task.priority}">${task.priority}</span>
+          ${tagHtml}
+          ${subHtml}
+          ${dateStr ? `<span><i data-lucide="calendar" style="width:10px;display:inline"></i> ${dateStr}</span>` : ''}
+        </div>
+      </div>
+      <div class="subtask-container hidden" id="subtasks-${task.id}">
+        <ul class="subtask-list">
+          ${(task.subtasks || []).map(s => `
+            <li class="subtask-item ${s.completed ? 'done' : ''}" data-sid="${s.id}">
+              <div class="sub-check ${s.completed ? 'checked' : ''}"></div>
+              <span>${s.text}</span>
+              <button class="sub-del"><i data-lucide="x"></i></button>
+            </li>
+          `).join('')}
+        </ul>
+        <div class="subtask-add">
+          <input type="text" placeholder="Add sub-task..." class="sub-input" />
+          <button class="sub-add-btn"><i data-lucide="plus"></i></button>
+        </div>
       </div>
     </div>
     <div class="item-actions">
+      <button class="action-btn toggle-sub" title="Sub-tasks">
+        <i data-lucide="chevron-down"></i>
+      </button>
       <button class="action-btn delete" title="Delete Task">
         <i data-lucide="trash-2"></i>
       </button>
     </div>
   `;
 
-  // Attach events directly to avoid global scope pollution
+  // --- Sub-task Events ---
+  const toggleSubBtn = li.querySelector('.toggle-sub');
+  const subContainer = li.querySelector('.subtask-container');
+  
+  toggleSubBtn.addEventListener('click', () => {
+    subContainer.classList.toggle('hidden');
+    toggleSubBtn.querySelector('i').style.transform = subContainer.classList.contains('hidden') ? 'rotate(0)' : 'rotate(180deg)';
+  });
+
+  // Add Sub-task
+  const subInput = li.querySelector('.sub-input');
+  const subAddBtn = li.querySelector('.sub-add-btn');
+  const addSub = () => {
+    const text = subInput.value.trim();
+    if (text) {
+      const newSub = { id: Date.now(), text, completed: false };
+      const updatedSubtasks = [...(task.subtasks || []), newSub];
+      updateTaskInDB(task.id, { subtasks: updatedSubtasks });
+    }
+  };
+  subAddBtn.addEventListener('click', addSub);
+  subInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') addSub(); });
+
+  // Toggle Sub-task
+  li.querySelectorAll('.subtask-item').forEach(sEl => {
+    const sid = parseInt(sEl.dataset.sid);
+    sEl.querySelector('.sub-check').addEventListener('click', () => {
+      const updated = task.subtasks.map(s => s.id === sid ? { ...s, completed: !s.completed } : s);
+      updateTaskInDB(task.id, { subtasks: updated });
+    });
+    sEl.querySelector('.sub-del').addEventListener('click', () => {
+      const updated = task.subtasks.filter(s => s.id !== sid);
+      updateTaskInDB(task.id, { subtasks: updated });
+    });
+  });
+
+  // --- Main Task Events ---
   li.querySelector('.todo-checkbox').addEventListener('click', () => toggleTask(task.id));
   li.querySelector('.delete').addEventListener('click', (e) => {
     e.stopPropagation();
@@ -225,7 +329,8 @@ const handleAddTask = () => {
       time: elements.todoTime.value,
       tag: elements.todoTag.value,
       priority: elements.todoPriority.value,
-      completed: false
+      completed: false,
+      subtasks: []
     };
     saveTask(newTask);
     elements.todoInput.value = '';
@@ -254,7 +359,7 @@ const setTheme = (theme) => {
 const startFocusMode = () => {
   const topTask = tasks.find(t => !t.completed && t.priority === 'high') || tasks.find(t => !t.completed);
   if (!topTask) {
-    showNotification('No active missions found. Add a task to start focusing.', 'info');
+    showNotification('No active missions found', 'info');
     return;
   }
   
@@ -269,7 +374,7 @@ const startFocusMode = () => {
     updateTimerDisplay();
     if (focusTimeRemaining <= 0) {
       clearInterval(focusTimerInterval);
-      showNotification('Focus session complete! Take a break.', 'success');
+      showNotification('Focus session complete!', 'success');
     }
   }, 1000);
 };
@@ -349,3 +454,6 @@ const setupEventListeners = () => {
 
 // Start the app
 init();
+
+// Background sync (polling) - Only fetch if not reordering
+setInterval(fetchTasks, 5000);
