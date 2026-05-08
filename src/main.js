@@ -1,6 +1,6 @@
 /**
- * ZenTask Pro v2.1
- * Advanced Persistence & Sub-tasks
+ * ZenTask Pro v2.2
+ * Robustness & Sync Optimization
  */
 
 const API_URL = 'http://localhost:3001/api/tasks';
@@ -10,6 +10,7 @@ let focusTimerInterval = null;
 let focusTimeRemaining = 25 * 60;
 let sortable = null;
 let isUpdatingOrder = false;
+let isPolling = true;
 
 // DOM Elements
 const elements = {
@@ -42,19 +43,49 @@ const elements = {
 // --- Initialization ---
 
 const init = async () => {
+  console.log('ZenTask Pro: Initializing...');
+  
+  // Verify dependencies
+  if (typeof Sortable === 'undefined') {
+    console.warn('SortableJS not loaded from CDN, drag-and-drop disabled');
+  }
+  
   setupEventListeners();
-  setupSortable();
+  if (typeof Sortable !== 'undefined') setupSortable();
   loadTheme();
+  
   await fetchTasks();
+  
+  // Hide Loading Overlay
+  const loading = document.getElementById('loading-overlay');
+  if (loading) loading.classList.add('fade-out');
+
+  // Start Polling
+  setInterval(() => {
+    if (isPolling && !isUpdatingOrder && !isInputFocused()) {
+      fetchTasks(true); // Background fetch
+    }
+  }, 5000);
+
+  console.log('ZenTask Pro: Ready.');
+};
+
+const isInputFocused = () => {
+  return document.activeElement && 
+         (document.activeElement.tagName === 'INPUT' || 
+          document.activeElement.tagName === 'SELECT' || 
+          document.activeElement.tagName === 'TEXTAREA');
 };
 
 const setupSortable = () => {
   sortable = new Sortable(elements.todoList, {
     animation: 250,
     ghostClass: 'dragging',
-    handle: '.todo-content', // Only drag by content area
+    handle: '.todo-content',
+    onStart: () => { isPolling = false; },
     onEnd: async () => {
       await persistNewOrder();
+      isPolling = true;
     }
   });
 };
@@ -69,7 +100,7 @@ const persistNewOrder = async () => {
     order: index
   }));
 
-  // Optimistic update of local tasks
+  // Optimistic update
   newOrders.forEach(({ id, order }) => {
     const task = tasks.find(t => t.id === id);
     if (task) task.order = order;
@@ -81,7 +112,6 @@ const persistNewOrder = async () => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ orders: newOrders })
     });
-    showNotification('Order saved', 'success');
   } catch (err) {
     console.error('Failed to save order:', err);
     showNotification('Order sync failed', 'error');
@@ -92,17 +122,24 @@ const persistNewOrder = async () => {
 
 // --- API Calls ---
 
-const fetchTasks = async () => {
-  if (isUpdatingOrder) return; // Don't fetch while we are reordering
+const fetchTasks = async (isBackground = false) => {
   try {
     const res = await fetch(API_URL);
     if (!res.ok) throw new Error('Network response was not ok');
-    tasks = await res.json();
-    renderTasks();
+    const newTasks = await res.json();
+    
+    // Check if tasks actually changed to avoid unnecessary re-renders
+    if (JSON.stringify(newTasks) !== JSON.stringify(tasks)) {
+      tasks = newTasks;
+      renderTasks();
+      if (isBackground) console.log('ZenTask Pro: Background sync complete.');
+    }
   } catch (err) {
-    console.error('Fetch failed, using local fallback:', err);
-    tasks = JSON.parse(localStorage.getItem('zentasks_v2')) || [];
-    renderTasks();
+    if (!isBackground) {
+      console.error('Fetch failed, using local fallback:', err);
+      tasks = JSON.parse(localStorage.getItem('zentasks_v2')) || [];
+      renderTasks();
+    }
   }
 };
 
@@ -125,10 +162,9 @@ const saveTask = async (task) => {
 };
 
 const updateTaskInDB = async (id, updates) => {
-  // Optimistic UI Update
   const index = tasks.findIndex(t => t.id === id);
   if (index !== -1) {
-    const oldTask = { ...tasks[index] };
+    // Optimistic Update
     tasks[index] = { ...tasks[index], ...updates };
     renderTasks();
 
@@ -140,31 +176,25 @@ const updateTaskInDB = async (id, updates) => {
       });
       syncLocalStorage();
     } catch (err) {
-      console.error('Update failed, rolling back:', err);
-      tasks[index] = oldTask;
-      renderTasks();
+      console.error('Update failed:', err);
       showNotification('Sync failed', 'error');
+      fetchTasks(); // Rollback to server state
     }
   }
 };
 
 const deleteTask = async (id) => {
-  const index = tasks.findIndex(t => t.id === id);
-  if (index !== -1) {
-    const deletedTask = tasks[index];
-    tasks = tasks.filter(t => t.id !== id);
-    renderTasks();
+  tasks = tasks.filter(t => t.id !== id);
+  renderTasks();
 
-    try {
-      await fetch(`${API_URL}/${id}`, { method: 'DELETE' });
-      syncLocalStorage();
-      showNotification('Mission Aborted', 'info');
-    } catch (err) {
-      console.error('Delete failed, rolling back:', err);
-      tasks.splice(index, 0, deletedTask);
-      renderTasks();
-      showNotification('Abort failed', 'error');
-    }
+  try {
+    await fetch(`${API_URL}/${id}`, { method: 'DELETE' });
+    syncLocalStorage();
+    showNotification('Mission Aborted', 'info');
+  } catch (err) {
+    console.error('Delete failed:', err);
+    showNotification('Abort failed', 'error');
+    fetchTasks(); // Rollback
   }
 };
 
@@ -174,9 +204,9 @@ const syncLocalStorage = () => {
 
 // --- Logic ---
 
-const getFilteredTasks = () => {
+const renderTasks = () => {
   const query = elements.searchInput.value.toLowerCase();
-  return tasks.filter(t => {
+  const filtered = tasks.filter(t => {
     const matchesSearch = t.text.toLowerCase().includes(query) || 
                          (t.tag && t.tag.toLowerCase().includes(query));
     const matchesTab = currentFilter === 'all' || 
@@ -184,10 +214,7 @@ const getFilteredTasks = () => {
                        (currentFilter === 'completed' && t.completed);
     return matchesSearch && matchesTab;
   }).sort((a, b) => (a.order || 0) - (b.order || 0));
-};
 
-const renderTasks = () => {
-  const filtered = getFilteredTasks();
   elements.todoList.innerHTML = '';
   filtered.forEach(task => {
     const li = createTaskElement(task);
@@ -195,7 +222,7 @@ const renderTasks = () => {
   });
 
   updateStats();
-  lucide.createIcons();
+  if (typeof lucide !== 'undefined') lucide.createIcons();
 };
 
 const createTaskElement = (task) => {
@@ -206,7 +233,6 @@ const createTaskElement = (task) => {
   const dateStr = task.date ? new Date(task.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : '';
   const tagHtml = task.tag && task.tag !== 'none' ? `<span class="badge tag-badge">${task.tag}</span>` : '';
   
-  // Sub-tasks summary
   const totalSub = task.subtasks?.length || 0;
   const doneSub = task.subtasks?.filter(s => s.completed).length || 0;
   const subHtml = totalSub > 0 ? `<span class="badge sub-badge"><i data-lucide="layers" style="width:10px"></i> ${doneSub}/${totalSub}</span>` : '';
@@ -251,30 +277,26 @@ const createTaskElement = (task) => {
     </div>
   `;
 
-  // --- Sub-task Events ---
-  const toggleSubBtn = li.querySelector('.toggle-sub');
-  const subContainer = li.querySelector('.subtask-container');
-  
-  toggleSubBtn.addEventListener('click', () => {
-    subContainer.classList.toggle('hidden');
-    toggleSubBtn.querySelector('i').style.transform = subContainer.classList.contains('hidden') ? 'rotate(0)' : 'rotate(180deg)';
+  // Attach Events
+  li.querySelector('.toggle-sub').addEventListener('click', () => {
+    const cont = li.querySelector('.subtask-container');
+    const icon = li.querySelector('.toggle-sub i');
+    cont.classList.toggle('hidden');
+    if (icon) icon.style.transform = cont.classList.contains('hidden') ? 'rotate(0)' : 'rotate(180deg)';
   });
 
-  // Add Sub-task
   const subInput = li.querySelector('.sub-input');
-  const subAddBtn = li.querySelector('.sub-add-btn');
   const addSub = () => {
     const text = subInput.value.trim();
     if (text) {
       const newSub = { id: Date.now(), text, completed: false };
-      const updatedSubtasks = [...(task.subtasks || []), newSub];
-      updateTaskInDB(task.id, { subtasks: updatedSubtasks });
+      const updated = [...(task.subtasks || []), newSub];
+      updateTaskInDB(task.id, { subtasks: updated });
     }
   };
-  subAddBtn.addEventListener('click', addSub);
+  li.querySelector('.sub-add-btn').addEventListener('click', addSub);
   subInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') addSub(); });
 
-  // Toggle Sub-task
   li.querySelectorAll('.subtask-item').forEach(sEl => {
     const sid = parseInt(sEl.dataset.sid);
     sEl.querySelector('.sub-check').addEventListener('click', () => {
@@ -287,8 +309,10 @@ const createTaskElement = (task) => {
     });
   });
 
-  // --- Main Task Events ---
-  li.querySelector('.todo-checkbox').addEventListener('click', () => toggleTask(task.id));
+  li.querySelector('.todo-checkbox').addEventListener('click', () => {
+    updateTaskInDB(task.id, { completed: !task.completed });
+  });
+  
   li.querySelector('.delete').addEventListener('click', (e) => {
     e.stopPropagation();
     deleteTask(task.id);
@@ -304,48 +328,18 @@ const updateStats = () => {
   const urgent = tasks.filter(t => t.priority === 'high' && !t.completed).length;
   const percent = total === 0 ? 0 : Math.round((completed / total) * 100);
 
-  elements.pendingCount.innerText = pending;
-  elements.urgentCount.innerText = urgent;
-  elements.doneCount.innerText = completed;
-  elements.progressFill.style.width = `${percent}%`;
-  elements.progressText.innerText = `${percent}%`;
+  if (elements.pendingCount) elements.pendingCount.innerText = pending;
+  if (elements.urgentCount) elements.urgentCount.innerText = urgent;
+  if (elements.doneCount) elements.doneCount.innerText = completed;
+  if (elements.progressFill) elements.progressFill.style.width = `${percent}%`;
+  if (elements.progressText) elements.progressText.innerText = `${percent}%`;
 };
 
-// --- Actions ---
-
-const toggleTask = (id) => {
-  const task = tasks.find(t => t.id === id);
-  if (task) {
-    updateTaskInDB(id, { completed: !task.completed });
-  }
-};
-
-const handleAddTask = () => {
-  const text = elements.todoInput.value.trim();
-  if (text) {
-    const newTask = {
-      text,
-      date: elements.todoDate.value,
-      time: elements.todoTime.value,
-      tag: elements.todoTag.value,
-      priority: elements.todoPriority.value,
-      completed: false,
-      subtasks: []
-    };
-    saveTask(newTask);
-    elements.todoInput.value = '';
-    elements.todoDate.value = '';
-    elements.todoTime.value = '';
-    elements.todoTag.value = 'none';
-    elements.todoPriority.value = 'medium';
-  }
-};
-
-// --- Theme Management ---
+// --- Theme & Focus ---
 
 const loadTheme = () => {
-  const savedTheme = localStorage.getItem('zentask-theme') || 'theme-midnight';
-  document.body.className = savedTheme;
+  const saved = localStorage.getItem('zentask-theme') || 'theme-midnight';
+  document.body.className = saved;
 };
 
 const setTheme = (theme) => {
@@ -354,27 +348,24 @@ const setTheme = (theme) => {
   elements.themeModal.classList.add('hidden');
 };
 
-// --- Focus Mode ---
-
 const startFocusMode = () => {
   const topTask = tasks.find(t => !t.completed && t.priority === 'high') || tasks.find(t => !t.completed);
   if (!topTask) {
-    showNotification('No active missions found', 'info');
+    showNotification('No active missions', 'info');
     return;
   }
-  
   elements.focusTaskTitle.innerText = topTask.text;
   elements.focusOverlay.classList.remove('hidden');
-  
   focusTimeRemaining = 25 * 60;
   updateTimerDisplay();
   
+  if (focusTimerInterval) clearInterval(focusTimerInterval);
   focusTimerInterval = setInterval(() => {
     focusTimeRemaining--;
     updateTimerDisplay();
     if (focusTimeRemaining <= 0) {
       clearInterval(focusTimerInterval);
-      showNotification('Focus session complete!', 'success');
+      showNotification('Focus complete!', 'success');
     }
   }, 1000);
 };
@@ -385,7 +376,7 @@ const updateTimerDisplay = () => {
   elements.focusTimer.innerText = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
 };
 
-// --- Notifications ---
+// --- UI Feedback ---
 
 const notifyContainer = document.createElement('div');
 notifyContainer.className = 'notification-container';
@@ -394,32 +385,34 @@ document.body.appendChild(notifyContainer);
 const showNotification = (msg, type = 'info') => {
   const notify = document.createElement('div');
   notify.className = `notification ${type}`;
-  
-  const icons = {
-    success: 'check-circle',
-    info: 'info',
-    error: 'alert-circle'
-  };
-
-  notify.innerHTML = `
-    <i data-lucide="${icons[type] || 'info'}"></i>
-    <span>${msg}</span>
-  `;
-  
+  notify.innerHTML = `<span>${msg}</span>`;
   notifyContainer.appendChild(notify);
-  lucide.createIcons();
-
   setTimeout(() => {
     notify.classList.add('fade-out');
     setTimeout(() => notify.remove(), 500);
-  }, 4000);
+  }, 3000);
 };
 
 // --- Event Listeners ---
 
 const setupEventListeners = () => {
-  elements.addBtn.addEventListener('click', handleAddTask);
-  elements.todoInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') handleAddTask(); });
+  elements.addBtn.addEventListener('click', () => {
+    const text = elements.todoInput.value.trim();
+    if (text) {
+      saveTask({
+        text,
+        date: elements.todoDate.value,
+        time: elements.todoTime.value,
+        tag: elements.todoTag.value,
+        priority: elements.todoPriority.value,
+        completed: false,
+        subtasks: []
+      });
+      elements.todoInput.value = '';
+    }
+  });
+
+  elements.todoInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') elements.addBtn.click(); });
   elements.searchInput.addEventListener('input', renderTasks);
 
   elements.filterTabs.forEach(tab => {
@@ -444,16 +437,16 @@ const setupEventListeners = () => {
   });
   
   elements.focusComplete.addEventListener('click', () => {
-    const currentTitle = elements.focusTaskTitle.innerText;
-    const task = tasks.find(t => t.text === currentTitle && !t.completed);
-    if (task) toggleTask(task.id);
+    const task = tasks.find(t => t.text === elements.focusTaskTitle.innerText && !t.completed);
+    if (task) updateTaskInDB(task.id, { completed: true });
     clearInterval(focusTimerInterval);
     elements.focusOverlay.classList.add('hidden');
   });
 };
 
-// Start the app
-init();
-
-// Background sync (polling) - Only fetch if not reordering
-setInterval(fetchTasks, 5000);
+// Start
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', init);
+} else {
+  init();
+}
