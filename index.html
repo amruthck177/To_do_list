@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ZenTask | Premium Productivity</title>
+    <meta name="description" content="A high-fidelity, premium productivity tool for focused minds." />
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <div id="app">
+      <div class="main-card">
+        <header>
+          <h1>ZenTask</h1>
+          
+          <div class="progress-container">
+            <div class="progress-info">
+              <span id="task-count">0 tasks</span>
+              <span id="progress-percent">0% done</span>
+            </div>
+            <div class="progress-bar">
+              <div class="progress-fill" id="progress-fill"></div>
+            </div>
+          </div>
+        </header>
+
+        <div class="input-wrapper">
+          <input type="text" id="todo-input" placeholder="Enter a new mission..." autocomplete="off" />
+          <button class="add-btn" id="add-btn">Add</button>
+        </div>
+
+        <ul class="todo-list" id="todo-list">
+          <!-- Empty state will be shown here by JS if needed -->
+        </ul>
+      </div>
+    </div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
