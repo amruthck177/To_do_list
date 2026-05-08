@@ -3,8 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>To-do List | Clean & Minimal</title>
-    <meta name="description" content="A simple, elegant, and powerful to-do list for daily productivity." />
+    <title>To-do List</title>
     <link rel="stylesheet" href="/src/style.css" />
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
@@ -15,29 +14,24 @@
     </div>
 
     <div id="app">
-      <div class="main-card glass-container">
-        <header>
-          <div class="header-top">
-            <div class="brand">
-              <h1>To-do List</h1>
-            </div>
-            <div class="header-actions">
-              <button id="theme-btn" class="icon-btn" title="Appearance">
-                <i data-lucide="palette"></i>
-              </button>
-            </div>
+      <header>
+        <div class="header-top">
+          <h1>To-do List</h1>
+          <button id="theme-btn" class="icon-btn" title="Theme">
+            <i data-lucide="palette"></i>
+          </button>
+        </div>
+        <div class="header-summary">
+          <p><span id="pending-count">0</span> tasks</p>
+          <div class="mini-progress">
+            <div class="progress-fill" id="progress-fill"></div>
           </div>
-          
-          <div class="header-summary">
-            <p><span id="pending-count">0</span> tasks remaining</p>
-            <div class="mini-progress">
-              <div class="progress-fill" id="progress-fill"></div>
-            </div>
-          </div>
-        </header>
+        </div>
+      </header>
 
+      <main>
         <div class="creation-area">
-          <input type="text" id="todo-input" placeholder="What needs to be done?" autocomplete="off" />
+          <input type="text" id="todo-input" placeholder="What's on your mind?" autocomplete="off" />
           <div class="meta-options">
             <div class="meta-group">
               <div class="meta-item">
@@ -54,7 +48,6 @@
                   <div class="option" data-value="work">Work</div>
                   <div class="option" data-value="personal">Personal</div>
                   <div class="option" data-value="urgent">Urgent</div>
-                  <div class="option" data-value="other">Other</div>
                 </div>
               </div>
               <div class="meta-item priority-pills" id="priority-selector">
@@ -64,8 +57,8 @@
               </div>
             </div>
             <button class="add-btn" id="add-btn">
+              <span>Add</span>
               <i data-lucide="plus"></i>
-              <span>Add Task</span>
             </button>
           </div>
         </div>
@@ -73,7 +66,7 @@
         <div class="control-bar">
           <div class="search-wrap">
             <i data-lucide="search"></i>
-            <input type="text" id="search-input" placeholder="Search tasks..." />
+            <input type="text" id="search-input" placeholder="Search..." />
           </div>
           <div class="filter-tabs">
             <button class="tab active" data-filter="all">All</button>
@@ -82,37 +75,23 @@
           </div>
         </div>
 
-        <div class="list-container">
-          <ul class="todo-list" id="todo-list">
-            <!-- Tasks injected here -->
-          </ul>
-        </div>
-      </div>
+        <ul class="todo-list" id="todo-list">
+          <!-- Tasks injected here -->
+        </ul>
+      </main>
     </div>
 
-    <!-- Theme Selector Modal -->
+    <!-- Theme Modal -->
     <div id="theme-modal" class="modal hidden">
-      <div class="modal-content glass-container">
+      <div class="modal-content">
         <h3>Appearance</h3>
         <div class="theme-grid">
-          <button class="theme-option" data-theme="theme-midnight">
-            <div class="theme-preview midnight"></div>
-            <span>Midnight</span>
-          </button>
-          <button class="theme-option" data-theme="theme-aurora">
-            <div class="theme-preview aurora"></div>
-            <span>Aurora</span>
-          </button>
-          <button class="theme-option" data-theme="theme-crimson">
-            <div class="theme-preview crimson"></div>
-            <span>Crimson</span>
-          </button>
-          <button class="theme-option" data-theme="theme-arctic">
-            <div class="theme-preview arctic"></div>
-            <span>Arctic</span>
-          </button>
+          <button class="theme-option" data-theme="theme-midnight">Midnight</button>
+          <button class="theme-option" data-theme="theme-aurora">Aurora</button>
+          <button class="theme-option" data-theme="theme-crimson">Crimson</button>
+          <button class="theme-option" data-theme="theme-arctic">Arctic</button>
         </div>
-        <button class="modal-close" id="close-theme-modal">Close</button>
+        <button class="icon-btn" id="close-theme-modal" style="width:100%;margin-top:1rem">Close</button>
       </div>
     </div>
 

@@ -1,6 +1,5 @@
 /**
- * Simple & Elegant To-do List v3.0
- * Custom UI Selectors & Robust Sync
+ * Zinc Minimalist To-do List v3.1
  */
 
 const API_URL = 'http://localhost:3001/api/tasks';
@@ -9,7 +8,7 @@ let currentFilter = 'all';
 let isUpdatingOrder = false;
 let isPolling = true;
 
-// Custom State for Selectors
+// Selector State
 let selectedPriority = 'medium';
 let selectedTag = 'none';
 
@@ -27,38 +26,28 @@ const elements = {
   closeThemeModal: document.getElementById('close-theme-modal'),
   themeOptions: document.querySelectorAll('.theme-option'),
   loadingOverlay: document.getElementById('loading-overlay'),
-  // Custom UI elements
   tagSelector: document.getElementById('tag-selector'),
   currentTag: document.getElementById('current-tag'),
   tagOptions: document.querySelector('.dropdown-options'),
   priorityPills: document.querySelectorAll('.priority-pills .pill'),
 };
 
-// --- Initialization ---
-
 const init = async () => {
   setupEventListeners();
   setupCustomSelectors();
   if (typeof Sortable !== 'undefined') setupSortable();
   loadTheme();
-  
   await fetchTasks();
-  
   if (elements.loadingOverlay) elements.loadingOverlay.classList.add('fade-out');
 
   setInterval(() => {
-    if (isPolling && !isUpdatingOrder && !isInputFocused()) {
-      fetchTasks(true);
-    }
+    if (isPolling && !isUpdatingOrder && !isInputFocused()) fetchTasks(true);
   }, 5000);
 };
 
-const isInputFocused = () => {
-  return document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'SELECT');
-};
+const isInputFocused = () => document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'SELECT');
 
 const setupCustomSelectors = () => {
-  // Priority Pills
   elements.priorityPills.forEach(pill => {
     pill.addEventListener('click', () => {
       elements.priorityPills.forEach(p => p.classList.remove('active'));
@@ -67,7 +56,6 @@ const setupCustomSelectors = () => {
     });
   });
 
-  // Tag Dropdown
   elements.tagSelector.addEventListener('click', (e) => {
     e.stopPropagation();
     elements.tagOptions.classList.toggle('hidden');
@@ -82,9 +70,7 @@ const setupCustomSelectors = () => {
     });
   });
 
-  document.addEventListener('click', () => {
-    elements.tagOptions.classList.add('hidden');
-  });
+  document.addEventListener('click', () => elements.tagOptions.classList.add('hidden'));
 };
 
 const setupSortable = () => {
@@ -102,44 +88,32 @@ const setupSortable = () => {
 const persistNewOrder = async () => {
   if (isUpdatingOrder) return;
   isUpdatingOrder = true;
-
   const itemEls = Array.from(elements.todoList.querySelectorAll('.todo-item'));
-  const newOrders = itemEls.map((el, index) => ({
-    id: parseInt(el.dataset.id),
-    order: index
-  }));
-
+  const newOrders = itemEls.map((el, index) => ({ id: parseInt(el.dataset.id), order: index }));
   newOrders.forEach(({ id, order }) => {
-    const task = tasks.find(t => t.id === id);
-    if (task) task.order = order;
+    const t = tasks.find(x => x.id === id);
+    if (t) t.order = order;
   });
-
   try {
     await fetch(`${API_URL}/reorder`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ orders: newOrders })
     });
-  } catch (err) {
-    console.error('Order sync failed:', err);
-  } finally {
-    isUpdatingOrder = false;
-  }
+  } catch (err) { console.error(err); } finally { isUpdatingOrder = false; }
 };
 
-// --- API & State ---
-
-const fetchTasks = async (isBackground = false) => {
+const fetchTasks = async (isBg = false) => {
   try {
     const res = await fetch(API_URL);
-    const newTasks = await res.json();
-    if (JSON.stringify(newTasks) !== JSON.stringify(tasks)) {
-      tasks = newTasks;
+    const data = await res.json();
+    if (JSON.stringify(data) !== JSON.stringify(tasks)) {
+      tasks = data;
       renderTasks();
     }
   } catch (err) {
-    if (!isBackground) {
-      tasks = JSON.parse(localStorage.getItem('todolist_v1')) || [];
+    if (!isBg) {
+      tasks = JSON.parse(localStorage.getItem('todolist_zinc')) || [];
       renderTasks();
     }
   }
@@ -152,20 +126,18 @@ const saveTask = async (task) => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(task)
     });
-    const newTask = await res.json();
-    tasks.unshift(newTask);
+    const data = await res.json();
+    tasks.unshift(data);
     syncLocal();
     renderTasks();
-    showNotification('Task added', 'success');
-  } catch (err) {
-    showNotification('Failed to add task', 'error');
-  }
+    showNotification('Task Added', 'success');
+  } catch (err) { showNotification('Error adding task', 'error'); }
 };
 
 const updateTaskInDB = async (id, updates) => {
-  const index = tasks.findIndex(t => t.id === id);
-  if (index !== -1) {
-    tasks[index] = { ...tasks[index], ...updates };
+  const i = tasks.findIndex(t => t.id === id);
+  if (i !== -1) {
+    tasks[i] = { ...tasks[i], ...updates };
     renderTasks();
     try {
       await fetch(`${API_URL}/${id}`, {
@@ -174,9 +146,7 @@ const updateTaskInDB = async (id, updates) => {
         body: JSON.stringify(updates)
       });
       syncLocal();
-    } catch (err) {
-      fetchTasks();
-    }
+    } catch (err) { fetchTasks(); }
   }
 };
 
@@ -186,32 +156,21 @@ const deleteTask = async (id) => {
   try {
     await fetch(`${API_URL}/${id}`, { method: 'DELETE' });
     syncLocal();
-    showNotification('Task deleted');
-  } catch (err) {
-    fetchTasks();
-  }
+  } catch (err) { fetchTasks(); }
 };
 
-const syncLocal = () => localStorage.setItem('todolist_v1', JSON.stringify(tasks));
-
-// --- Rendering ---
+const syncLocal = () => localStorage.setItem('todolist_zinc', JSON.stringify(tasks));
 
 const renderTasks = () => {
   const query = elements.searchInput.value.toLowerCase();
   const filtered = tasks.filter(t => {
-    const matchesSearch = t.text.toLowerCase().includes(query) || (t.tag && t.tag.toLowerCase().includes(query));
-    const matchesTab = currentFilter === 'all' || 
-                       (currentFilter === 'pending' && !t.completed) || 
-                       (currentFilter === 'completed' && t.completed);
-    return matchesSearch && matchesTab;
+    const mSearch = t.text.toLowerCase().includes(query) || (t.tag && t.tag.toLowerCase().includes(query));
+    const mTab = currentFilter === 'all' || (currentFilter === 'pending' && !t.completed) || (currentFilter === 'completed' && t.completed);
+    return mSearch && mTab;
   }).sort((a, b) => (a.order || 0) - (b.order || 0));
 
   elements.todoList.innerHTML = '';
-  filtered.forEach(task => {
-    const li = createTaskElement(task);
-    elements.todoList.appendChild(li);
-  });
-
+  filtered.forEach(t => elements.todoList.appendChild(createTaskElement(t)));
   updateStats();
   if (typeof lucide !== 'undefined') lucide.createIcons();
 };
@@ -222,7 +181,7 @@ const createTaskElement = (task) => {
   li.dataset.id = task.id;
 
   const dateStr = task.date ? new Date(task.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : '';
-  const tagHtml = task.tag && task.tag !== 'none' ? `<span class="badge tag-badge">${task.tag}</span>` : '';
+  const tagHtml = task.tag && task.tag !== 'none' ? `<span class="badge">${task.tag}</span>` : '';
 
   li.innerHTML = `
     <div class="todo-checkbox">
@@ -239,9 +198,7 @@ const createTaskElement = (task) => {
       </div>
     </div>
     <div class="item-actions">
-      <button class="icon-btn delete" title="Delete">
-        <i data-lucide="trash-2"></i>
-      </button>
+      <button class="icon-btn delete" title="Delete"><i data-lucide="trash-2"></i></button>
     </div>
   `;
 
@@ -256,59 +213,45 @@ const updateStats = () => {
   const completed = tasks.filter(t => t.completed).length;
   const pending = total - completed;
   const percent = total === 0 ? 0 : Math.round((completed / total) * 100);
-
   if (elements.pendingCount) elements.pendingCount.innerText = pending;
   if (elements.progressFill) elements.progressFill.style.width = `${percent}%`;
 };
 
-// --- Theme Logic ---
-
 const loadTheme = () => {
-  const saved = localStorage.getItem('todo-theme') || 'theme-midnight';
+  const saved = localStorage.getItem('todo-theme-zinc') || 'theme-midnight';
   document.body.className = saved;
 };
 
 const setTheme = (theme) => {
   document.body.className = theme;
-  localStorage.setItem('todo-theme', theme);
+  localStorage.setItem('todo-theme-zinc', theme);
   elements.themeModal.classList.add('hidden');
 };
 
 const showNotification = (msg, type = 'info') => {
-  const notifyContainer = document.querySelector('.notification-container') || (() => {
-    const c = document.createElement('div');
-    c.className = 'notification-container';
-    document.body.appendChild(c);
-    return c;
+  const c = document.querySelector('.notification-container') || (() => {
+    const div = document.createElement('div');
+    div.className = 'notification-container';
+    document.body.appendChild(div);
+    return div;
   })();
-  const notify = document.createElement('div');
-  notify.className = `notification ${type}`;
-  notify.innerHTML = `<span>${msg}</span>`;
-  notifyContainer.appendChild(notify);
-  setTimeout(() => { notify.classList.add('fade-out'); setTimeout(() => notify.remove(), 500); }, 3000);
+  const n = document.createElement('div');
+  n.className = `notification ${type}`;
+  n.innerText = msg;
+  c.appendChild(n);
+  setTimeout(() => { n.style.opacity = '0'; setTimeout(() => n.remove(), 500); }, 3000);
 };
 
 const setupEventListeners = () => {
   elements.addBtn.addEventListener('click', () => {
     const text = elements.todoInput.value.trim();
     if (text) {
-      saveTask({
-        text,
-        date: elements.todoDate.value,
-        tag: selectedTag,
-        priority: selectedPriority,
-        completed: false
-      });
+      saveTask({ text, date: elements.todoDate.value, tag: selectedTag, priority: selectedPriority, completed: false });
       elements.todoInput.value = '';
-      // Reset Selectors
       selectedTag = 'none';
       elements.currentTag.innerText = 'No Tag';
-      selectedPriority = 'medium';
-      elements.priorityPills.forEach(p => p.classList.remove('active'));
-      document.querySelector('.pill[data-value="medium"]').classList.add('active');
     }
   });
-
   elements.todoInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') elements.addBtn.click(); });
   elements.searchInput.addEventListener('input', renderTasks);
   elements.filterTabs.forEach(tab => {
@@ -319,7 +262,6 @@ const setupEventListeners = () => {
       renderTasks();
     });
   });
-
   elements.themeBtn.addEventListener('click', () => elements.themeModal.classList.remove('hidden'));
   elements.closeThemeModal.addEventListener('click', () => elements.themeModal.classList.add('hidden'));
   elements.themeOptions.forEach(opt => opt.addEventListener('click', () => setTheme(opt.dataset.theme)));
