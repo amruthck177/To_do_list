@@ -3,8 +3,8 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>ZenTask Pro | Premium Productivity</title>
-    <meta name="description" content="A hyper-refined productivity suite with smart analytics, focus modes, and advanced task management." />
+    <title>To-do List | Clean & Minimal</title>
+    <meta name="description" content="A simple, elegant, and powerful to-do list for daily productivity." />
     <link rel="stylesheet" href="/src/style.css" />
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
@@ -12,58 +12,32 @@
   <body class="theme-midnight">
     <div id="loading-overlay" class="loading-overlay">
       <div class="loader"></div>
-      <p>Initializing ZenTask Pro...</p>
     </div>
+
     <div id="app">
       <div class="main-card glass-container">
         <header>
           <div class="header-top">
             <div class="brand">
-              <h1>ZenTask Pro</h1>
-              <span class="version">v2.0</span>
+              <h1>To-do List</h1>
             </div>
             <div class="header-actions">
-              <button id="theme-btn" class="icon-btn" title="Switch Theme">
+              <button id="theme-btn" class="icon-btn" title="Appearance">
                 <i data-lucide="palette"></i>
-              </button>
-              <button id="focus-toggle" class="focus-btn" title="Start Focus Mode">
-                <i data-lucide="zap"></i>
-                <span>Focus</span>
               </button>
             </div>
           </div>
           
-          <div class="stats-dashboard">
-            <div class="stat-card">
-              <span class="stat-label">Active</span>
-              <span class="stat-value" id="pending-count">0</span>
-            </div>
-            <div class="stat-card urgent">
-              <span class="stat-label">Urgent</span>
-              <span class="stat-value" id="urgent-count">0</span>
-            </div>
-            <div class="stat-card success">
-              <span class="stat-label">Done</span>
-              <span class="stat-value" id="done-count">0</span>
-            </div>
-          </div>
-
-          <div class="progress-section">
-            <div class="progress-info">
-              <span>Overall Progress</span>
-              <span id="progress-text">0%</span>
-            </div>
-            <div class="progress-bar-wrap">
+          <div class="header-summary">
+            <p><span id="pending-count">0</span> tasks remaining</p>
+            <div class="mini-progress">
               <div class="progress-fill" id="progress-fill"></div>
             </div>
           </div>
         </header>
 
         <div class="creation-area">
-          <div class="input-container">
-            <i data-lucide="plus-circle"></i>
-            <input type="text" id="todo-input" placeholder="What's the mission?" autocomplete="off" />
-          </div>
+          <input type="text" id="todo-input" placeholder="What needs to be done?" autocomplete="off" />
           <div class="meta-options">
             <div class="meta-group">
               <div class="meta-item">
@@ -71,23 +45,16 @@
                 <input type="date" id="todo-date" />
               </div>
               <div class="meta-item">
-                <i data-lucide="clock"></i>
-                <input type="time" id="todo-time" />
-              </div>
-            </div>
-            <div class="meta-group">
-              <div class="meta-item">
                 <i data-lucide="tag"></i>
                 <select id="todo-tag">
                   <option value="none">No Tag</option>
                   <option value="work">Work</option>
                   <option value="personal">Personal</option>
-                  <option value="health">Health</option>
-                  <option value="finance">Finance</option>
+                  <option value="other">Other</option>
                 </select>
               </div>
               <div class="meta-item">
-                <i data-lucide="shield-alert"></i>
+                <i data-lucide="bar-chart-2"></i>
                 <select id="todo-priority">
                   <option value="low">Low</option>
                   <option value="medium" selected>Medium</option>
@@ -96,8 +63,8 @@
               </div>
             </div>
             <button class="add-btn" id="add-btn">
-              <span>Launch</span>
-              <i data-lucide="arrow-right"></i>
+              <i data-lucide="plus"></i>
+              <span>Add Task</span>
             </button>
           </div>
         </div>
@@ -105,7 +72,7 @@
         <div class="control-bar">
           <div class="search-wrap">
             <i data-lucide="search"></i>
-            <input type="text" id="search-input" placeholder="Find a task..." />
+            <input type="text" id="search-input" placeholder="Search tasks..." />
           </div>
           <div class="filter-tabs">
             <button class="tab active" data-filter="all">All</button>
@@ -125,7 +92,7 @@
     <!-- Theme Selector Modal -->
     <div id="theme-modal" class="modal hidden">
       <div class="modal-content glass-container">
-        <h3>Select Appearance</h3>
+        <h3>Appearance</h3>
         <div class="theme-grid">
           <button class="theme-option" data-theme="theme-midnight">
             <div class="theme-preview midnight"></div>
@@ -144,32 +111,10 @@
             <span>Arctic</span>
           </button>
         </div>
-        <button class="modal-close" id="close-theme-modal">Done</button>
-      </div>
-    </div>
-
-    <!-- Focus Mode Overlay -->
-    <div id="focus-overlay" class="focus-overlay hidden">
-      <div class="focus-content">
-        <div class="focus-header">
-          <i data-lucide="brain" class="focus-icon"></i>
-          <h2 id="focus-task-title">Deep Work Session</h2>
-        </div>
-        <div class="timer-container">
-          <div class="timer" id="focus-timer">25:00</div>
-          <div class="timer-subtext">Stay focused, remain calm.</div>
-        </div>
-        <div class="focus-actions">
-          <button id="focus-complete" class="btn-primary">Mission Complete</button>
-          <button id="focus-exit" class="btn-ghost">Exit Focus</button>
-        </div>
+        <button class="modal-close" id="close-theme-modal">Close</button>
       </div>
     </div>
 
     <script type="module" src="/src/main.js"></script>
-    <script>
-      // Initialize Lucide icons
-      lucide.createIcons();
-    </script>
   </body>
 </html>
