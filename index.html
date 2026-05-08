@@ -44,22 +44,23 @@
                 <i data-lucide="calendar"></i>
                 <input type="date" id="todo-date" />
               </div>
-              <div class="meta-item">
-                <i data-lucide="tag"></i>
-                <select id="todo-tag">
-                  <option value="none">No Tag</option>
-                  <option value="work">Work</option>
-                  <option value="personal">Personal</option>
-                  <option value="other">Other</option>
-                </select>
+              <div class="meta-item custom-dropdown" id="tag-selector">
+                <div class="selected-option">
+                  <i data-lucide="tag"></i>
+                  <span id="current-tag">No Tag</span>
+                </div>
+                <div class="dropdown-options hidden">
+                  <div class="option" data-value="none">No Tag</div>
+                  <div class="option" data-value="work">Work</div>
+                  <div class="option" data-value="personal">Personal</div>
+                  <div class="option" data-value="urgent">Urgent</div>
+                  <div class="option" data-value="other">Other</div>
+                </div>
               </div>
-              <div class="meta-item">
-                <i data-lucide="bar-chart-2"></i>
-                <select id="todo-priority">
-                  <option value="low">Low</option>
-                  <option value="medium" selected>Medium</option>
-                  <option value="high">High</option>
-                </select>
+              <div class="meta-item priority-pills" id="priority-selector">
+                <button class="pill" data-value="low">Low</button>
+                <button class="pill active" data-value="medium">Med</button>
+                <button class="pill" data-value="high">High</button>
               </div>
             </div>
             <button class="add-btn" id="add-btn">

@@ -1,6 +1,6 @@
 /**
- * Simple & Elegant To-do List
- * Core Functionality with Robust Sync
+ * Simple & Elegant To-do List v3.0
+ * Custom UI Selectors & Robust Sync
  */
 
 const API_URL = 'http://localhost:3001/api/tasks';
@@ -9,12 +9,14 @@ let currentFilter = 'all';
 let isUpdatingOrder = false;
 let isPolling = true;
 
+// Custom State for Selectors
+let selectedPriority = 'medium';
+let selectedTag = 'none';
+
 const elements = {
   todoList: document.getElementById('todo-list'),
   todoInput: document.getElementById('todo-input'),
   todoDate: document.getElementById('todo-date'),
-  todoTag: document.getElementById('todo-tag'),
-  todoPriority: document.getElementById('todo-priority'),
   addBtn: document.getElementById('add-btn'),
   progressFill: document.getElementById('progress-fill'),
   pendingCount: document.getElementById('pending-count'),
@@ -25,12 +27,18 @@ const elements = {
   closeThemeModal: document.getElementById('close-theme-modal'),
   themeOptions: document.querySelectorAll('.theme-option'),
   loadingOverlay: document.getElementById('loading-overlay'),
+  // Custom UI elements
+  tagSelector: document.getElementById('tag-selector'),
+  currentTag: document.getElementById('current-tag'),
+  tagOptions: document.querySelector('.dropdown-options'),
+  priorityPills: document.querySelectorAll('.priority-pills .pill'),
 };
 
 // --- Initialization ---
 
 const init = async () => {
   setupEventListeners();
+  setupCustomSelectors();
   if (typeof Sortable !== 'undefined') setupSortable();
   loadTheme();
   
@@ -38,7 +46,6 @@ const init = async () => {
   
   if (elements.loadingOverlay) elements.loadingOverlay.classList.add('fade-out');
 
-  // Background Sync
   setInterval(() => {
     if (isPolling && !isUpdatingOrder && !isInputFocused()) {
       fetchTasks(true);
@@ -48,6 +55,36 @@ const init = async () => {
 
 const isInputFocused = () => {
   return document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'SELECT');
+};
+
+const setupCustomSelectors = () => {
+  // Priority Pills
+  elements.priorityPills.forEach(pill => {
+    pill.addEventListener('click', () => {
+      elements.priorityPills.forEach(p => p.classList.remove('active'));
+      pill.classList.add('active');
+      selectedPriority = pill.dataset.value;
+    });
+  });
+
+  // Tag Dropdown
+  elements.tagSelector.addEventListener('click', (e) => {
+    e.stopPropagation();
+    elements.tagOptions.classList.toggle('hidden');
+  });
+
+  document.querySelectorAll('.option').forEach(opt => {
+    opt.addEventListener('click', (e) => {
+      e.stopPropagation();
+      selectedTag = opt.dataset.value;
+      elements.currentTag.innerText = opt.innerText;
+      elements.tagOptions.classList.add('hidden');
+    });
+  });
+
+  document.addEventListener('click', () => {
+    elements.tagOptions.classList.add('hidden');
+  });
 };
 
 const setupSortable = () => {
@@ -224,7 +261,7 @@ const updateStats = () => {
   if (elements.progressFill) elements.progressFill.style.width = `${percent}%`;
 };
 
-// --- UI Logic ---
+// --- Theme Logic ---
 
 const loadTheme = () => {
   const saved = localStorage.getItem('todo-theme') || 'theme-midnight';
@@ -258,11 +295,17 @@ const setupEventListeners = () => {
       saveTask({
         text,
         date: elements.todoDate.value,
-        tag: elements.todoTag.value,
-        priority: elements.todoPriority.value,
+        tag: selectedTag,
+        priority: selectedPriority,
         completed: false
       });
       elements.todoInput.value = '';
+      // Reset Selectors
+      selectedTag = 'none';
+      elements.currentTag.innerText = 'No Tag';
+      selectedPriority = 'medium';
+      elements.priorityPills.forEach(p => p.classList.remove('active'));
+      document.querySelector('.pill[data-value="medium"]').classList.add('active');
     }
   });
 

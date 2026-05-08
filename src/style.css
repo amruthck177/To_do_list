@@ -90,7 +90,35 @@ header { margin-bottom: 2rem; }
   padding: 0.4rem 0.8rem; border-radius: 10px; font-size: 0.8rem;
 }
 .meta-item i { width: 14px; color: var(--text-secondary); }
-.meta-item input, .meta-item select { background: transparent; border: none; color: var(--text-primary); outline: none; font-size: inherit; }
+.meta-item input { background: transparent; border: none; color: var(--text-primary); outline: none; font-size: inherit; }
+
+/* Custom Priority Pills */
+.priority-pills { display: flex; gap: 4px; background: rgba(255,255,255,0.03) !important; padding: 4px !important; }
+.pill {
+  background: transparent; border: none; color: var(--text-secondary); padding: 4px 10px;
+  border-radius: 8px; font-size: 0.75rem; font-weight: 700; cursor: pointer; transition: var(--transition);
+}
+.pill[data-value="low"].active { background: rgba(16, 185, 129, 0.2); color: var(--low); }
+.pill[data-value="medium"].active { background: rgba(245, 158, 11, 0.2); color: var(--medium); }
+.pill[data-value="high"].active { background: rgba(239, 68, 68, 0.2); color: var(--urgent); }
+
+/* Custom Tag Dropdown */
+.custom-dropdown { position: relative; cursor: pointer; user-select: none; }
+.selected-option { display: flex; align-items: center; gap: 0.5rem; }
+.dropdown-options {
+  position: absolute; top: calc(100% + 8px); left: 0; min-width: 120px;
+  background: var(--card-bg); backdrop-filter: blur(20px); border: 1px solid var(--border-color);
+  border-radius: 12px; padding: 6px; z-index: 100; box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+  animation: dropdownIn 0.2s ease-out;
+}
+.dropdown-options.hidden { display: none; }
+@keyframes dropdownIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+
+.option {
+  padding: 6px 12px; border-radius: 8px; font-size: 0.8rem; font-weight: 500;
+  transition: var(--transition); color: var(--text-secondary);
+}
+.option:hover { background: rgba(255,255,255,0.05); color: var(--text-primary); }
 
 .add-btn {
   background: var(--primary); color: #fff; border: none; padding: 0.6rem 1.2rem;
