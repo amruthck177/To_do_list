@@ -30,6 +30,7 @@ const elements = {
   currentTag: document.getElementById('current-tag'),
   tagOptions: document.querySelector('.dropdown-options'),
   priorityPills: document.querySelectorAll('.priority-pills .pill'),
+  clearCompleted: document.getElementById('clear-completed'),
 };
 
 const init = async () => {
@@ -159,6 +160,26 @@ const deleteTask = async (id) => {
   } catch (err) { fetchTasks(); }
 };
 
+const deleteCompletedTasks = async () => {
+  const completedIds = tasks.filter(t => t.completed).map(t => t.id);
+  if (completedIds.length === 0) return;
+  
+  if (!confirm(`Are you sure you want to delete ${completedIds.length} completed tasks?`)) return;
+
+  tasks = tasks.filter(t => !t.completed);
+  renderTasks();
+  
+  try {
+    // We send a request to delete each or a bulk delete if API supports it
+    // For now, let's assume we delete them one by one or the server handles it
+    for (const id of completedIds) {
+      await fetch(`${API_URL}/${id}`, { method: 'DELETE' });
+    }
+    syncLocal();
+    showNotification('Cleared completed tasks', 'success');
+  } catch (err) { fetchTasks(); }
+};
+
 const syncLocal = () => localStorage.setItem('todolist_zinc', JSON.stringify(tasks));
 
 const renderTasks = () => {
@@ -265,6 +286,7 @@ const setupEventListeners = () => {
   elements.themeBtn.addEventListener('click', () => elements.themeModal.classList.remove('hidden'));
   elements.closeThemeModal.addEventListener('click', () => elements.themeModal.classList.add('hidden'));
   elements.themeOptions.forEach(opt => opt.addEventListener('click', () => setTheme(opt.dataset.theme)));
+  elements.clearCompleted.addEventListener('click', deleteCompletedTasks);
 };
 
 init();

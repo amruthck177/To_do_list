@@ -68,10 +68,15 @@
             <i data-lucide="search"></i>
             <input type="text" id="search-input" placeholder="Search..." />
           </div>
-          <div class="filter-tabs">
-            <button class="tab active" data-filter="all">All</button>
-            <button class="tab" data-filter="pending">Active</button>
-            <button class="tab" data-filter="completed">Done</button>
+          <div class="control-actions">
+            <div class="filter-tabs">
+              <button class="tab active" data-filter="all">All</button>
+              <button class="tab" data-filter="pending">Active</button>
+              <button class="tab" data-filter="completed">Done</button>
+            </div>
+            <button id="clear-completed" class="text-btn" title="Clear completed tasks">
+              <span>Clear Done</span>
+            </button>
           </div>
         </div>
 
