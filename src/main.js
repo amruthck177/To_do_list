@@ -204,7 +204,12 @@ function renderTasks() {
   }
 
   if (filtered.length === 0) {
-    taskListEl.innerHTML = `<li style="text-align:center; padding: 2rem; color: var(--text-secondary);">No tasks here yet.</li>`;
+    taskListEl.innerHTML = `
+      <li style="text-align:center; padding: 3rem 2rem; color: var(--text-secondary); display: flex; flex-direction: column; align-items: center; gap: 1rem;">
+        <i data-lucide="sparkles" style="width: 48px; height: 48px; opacity: 0.5;"></i>
+        <p>No tasks here yet. Time to create something beautiful!</p>
+      </li>`;
+    lucide.createIcons();
     return;
   }
 

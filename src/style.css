@@ -374,8 +374,13 @@ body {
   border: none; cursor: pointer;
   box-shadow: 0 4px 15px var(--accent-glow);
   transition: var(--transition);
+  animation: pulse-glow 2s infinite alternate;
 }
-.submit-btn:hover { transform: translateY(-2px) scale(1.05); }
+@keyframes pulse-glow {
+  0% { box-shadow: 0 4px 15px var(--accent-glow); }
+  100% { box-shadow: 0 4px 25px var(--accent), 0 0 10px var(--accent); }
+}
+.submit-btn:hover { transform: translateY(-2px) scale(1.05); animation: none; }
 
 /* Filter Tabs */
 .list-controls {
