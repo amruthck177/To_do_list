@@ -79,9 +79,24 @@
           
           <div class="task-meta-bar">
             <div class="meta-options">
-              <div class="meta-pill date-picker-wrap">
-                <i data-lucide="calendar"></i>
-                <input type="date" id="task-date" />
+              <div class="meta-pill custom-select date-picker-wrap" id="date-select">
+                <div class="selected-val">
+                  <i data-lucide="calendar"></i>
+                  <span id="selected-date-text">Today</span>
+                </div>
+                <div class="options-dropdown calendar-dropdown" id="calendar-dropdown">
+                  <div class="cal-header-mini">
+                    <button id="mini-prev-month" class="icon-only cal-nav"><i data-lucide="chevron-left"></i></button>
+                    <span id="mini-month-year">Month</span>
+                    <button id="mini-next-month" class="icon-only cal-nav"><i data-lucide="chevron-right"></i></button>
+                  </div>
+                  <div class="cal-grid-mini">
+                    <div class="cal-row-mini header-row">
+                      <span>S</span><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span>
+                    </div>
+                    <div id="mini-cal-days" class="cal-days-grid"></div>
+                  </div>
+                </div>
               </div>
               
               <div class="meta-pill custom-select" id="cat-select">

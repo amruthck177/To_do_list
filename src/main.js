@@ -13,7 +13,15 @@ let currentStatus = 'pending';
 // --- DOM ELEMENTS ---
 const taskListEl = document.getElementById('task-list');
 const taskInput = document.getElementById('task-input');
-const taskDate = document.getElementById('task-date');
+const dateSelectEl = document.getElementById('date-select');
+const selectedDateText = document.getElementById('selected-date-text');
+const miniPrevMonth = document.getElementById('mini-prev-month');
+const miniNextMonth = document.getElementById('mini-next-month');
+const miniMonthYear = document.getElementById('mini-month-year');
+const miniCalDays = document.getElementById('mini-cal-days');
+
+let selectedDateValue = '';
+let miniCalDate = new Date();
 const addTaskBtn = document.getElementById('add-task-btn');
 const themeToggleBtn = document.getElementById('theme-toggle');
 
@@ -107,6 +115,84 @@ setupCustomSelect(prioritySelect, selectedPriorityVal);
 if (catSelect) catSelect.dataset.current = 'none';
 if (prioritySelect) prioritySelect.dataset.current = 'medium';
 
+// --- MINI CALENDAR ---
+function renderMiniCalendar() {
+  if(!miniCalDays) return;
+  const year = miniCalDate.getFullYear();
+  const month = miniCalDate.getMonth();
+  
+  miniMonthYear.textContent = new Intl.DateTimeFormat('en-US', { month: 'short', year: 'numeric' }).format(miniCalDate);
+  miniCalDays.innerHTML = '';
+  
+  const firstDay = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const prevMonthDays = new Date(year, month, 0).getDate();
+  const totalCells = Math.ceil((firstDay + daysInMonth) / 7) * 7;
+  
+  const today = new Date();
+  
+  for (let i = 0; i < totalCells; i++) {
+    const cell = document.createElement('div');
+    cell.className = 'mini-day';
+    
+    let cellDate;
+    if (i < firstDay) {
+      const d = prevMonthDays - firstDay + i + 1;
+      cell.textContent = d;
+      cell.classList.add('muted');
+      cellDate = new Date(year, month - 1, d);
+    } else if (i >= firstDay + daysInMonth) {
+      const d = i - firstDay - daysInMonth + 1;
+      cell.textContent = d;
+      cell.classList.add('muted');
+      cellDate = new Date(year, month + 1, d);
+    } else {
+      const d = i - firstDay + 1;
+      cell.textContent = d;
+      cellDate = new Date(year, month, d);
+    }
+    
+    const isToday = cellDate.getFullYear() === today.getFullYear() && cellDate.getMonth() === today.getMonth() && cellDate.getDate() === today.getDate();
+    if(isToday) cell.classList.add('today');
+    
+    const cellDateStr = `${cellDate.getFullYear()}-${String(cellDate.getMonth() + 1).padStart(2, '0')}-${String(cellDate.getDate()).padStart(2, '0')}`;
+    if (selectedDateValue === cellDateStr) cell.classList.add('selected');
+    
+    cell.addEventListener('click', (e) => {
+      e.stopPropagation();
+      selectedDateValue = cellDateStr;
+      selectedDateText.textContent = cellDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      dateSelectEl.classList.remove('open');
+      renderMiniCalendar(); // re-render to update selected class
+    });
+    
+    miniCalDays.appendChild(cell);
+  }
+}
+
+if(dateSelectEl) {
+  dateSelectEl.addEventListener('click', (e) => {
+    e.stopPropagation();
+    document.querySelectorAll('.custom-select').forEach(el => {
+      if (el !== dateSelectEl) el.classList.remove('open');
+    });
+    dateSelectEl.classList.toggle('open');
+    renderMiniCalendar();
+  });
+  
+  miniPrevMonth.addEventListener('click', (e) => {
+    e.stopPropagation();
+    miniCalDate.setMonth(miniCalDate.getMonth() - 1);
+    renderMiniCalendar();
+  });
+  
+  miniNextMonth.addEventListener('click', (e) => {
+    e.stopPropagation();
+    miniCalDate.setMonth(miniCalDate.getMonth() + 1);
+    renderMiniCalendar();
+  });
+}
+
 document.addEventListener('click', () => {
   document.querySelectorAll('.custom-select').forEach(el => el.classList.remove('open'));
 });
@@ -130,7 +216,7 @@ async function handleAddTask() {
 
   const newTask = {
     text,
-    date: taskDate ? taskDate.value : '',
+    date: selectedDateValue,
     category: catSelect ? catSelect.dataset.current : 'none',
     priority: prioritySelect ? prioritySelect.dataset.current : 'medium',
     completed: false
@@ -145,7 +231,8 @@ async function handleAddTask() {
     const created = await res.json();
     tasks.unshift(created);
     taskInput.value = '';
-    if (taskDate) taskDate.value = '';
+    selectedDateValue = '';
+    if(selectedDateText) selectedDateText.textContent = 'Today';
     renderTasks();
     updateStats();
   } catch (err) {
