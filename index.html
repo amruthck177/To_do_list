@@ -1,102 +1,157 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>To-do List</title>
+    <title>Ethereal Tasks</title>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Outfit:wght@400;600;800&display=swap" rel="stylesheet">
+    
     <link rel="stylesheet" href="/src/style.css" />
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
   </head>
-  <body class="theme-midnight">
-    <div id="loading-overlay" class="loading-overlay">
-      <div class="loader"></div>
+  <body>
+    <!-- Live Wallpaper Background -->
+    <div class="live-wallpaper">
+      <div class="mesh-gradient"></div>
+      <div class="nature-scene">
+        <div class="mountains"></div>
+        <div class="stars"></div>
+        <div class="particles" id="particles-container"></div>
+      </div>
     </div>
 
-    <div id="app">
-      <header>
-        <div class="header-top">
-          <h1>To-do List</h1>
-          <button id="theme-btn" class="icon-btn" title="Theme">
-            <i data-lucide="palette"></i>
-          </button>
+    <div id="app" class="glass-panel">
+      <!-- Sidebar -->
+      <aside class="sidebar">
+        <div class="brand">
+          <i data-lucide="zap" class="brand-icon"></i>
+          <h2>Ethereal</h2>
         </div>
-        <div class="header-summary">
-          <p><span id="pending-count">0</span> tasks</p>
-          <div class="mini-progress">
-            <div class="progress-fill" id="progress-fill"></div>
-          </div>
-        </div>
-      </header>
+        
+        <nav class="categories">
+          <h3>Categories</h3>
+          <ul id="category-list">
+            <li class="active" data-cat="all"><i data-lucide="inbox"></i> All Tasks</li>
+            <li data-cat="work"><i data-lucide="briefcase"></i> Work <span class="badge"></span></li>
+            <li data-cat="personal"><i data-lucide="user"></i> Personal <span class="badge"></span></li>
+            <li data-cat="health"><i data-lucide="heart"></i> Health <span class="badge"></span></li>
+          </ul>
+        </nav>
 
-      <main>
-        <div class="creation-area">
-          <input type="text" id="todo-input" placeholder="What's on your mind?" autocomplete="off" />
-          <div class="meta-options">
-            <div class="meta-group">
-              <div class="meta-item">
+        <div class="stats-card glass-card">
+          <h3>Progress Overview</h3>
+          <div class="progress-ring-container">
+            <svg class="progress-ring" width="120" height="120">
+              <circle class="progress-ring-bg" cx="60" cy="60" r="54" />
+              <circle class="progress-ring-circle" cx="60" cy="60" r="54" id="progress-circle" />
+            </svg>
+            <div class="progress-text" id="progress-text">0%</div>
+          </div>
+          <p id="stats-summary">0 of 0 tasks completed</p>
+        </div>
+      </aside>
+
+      <!-- Main Content -->
+      <main class="main-content">
+        <header class="top-header">
+          <div>
+            <h1 id="view-title">All Tasks</h1>
+            <p class="date-subtitle" id="current-date">Today, October 24</p>
+          </div>
+          <div class="header-actions">
+            <button id="ai-suggest-btn" class="glass-btn primary-glow">
+              <i data-lucide="sparkles"></i> AI Suggest
+            </button>
+            <button id="theme-toggle" class="glass-btn icon-only">
+              <i data-lucide="sun" class="sun-icon"></i>
+              <i data-lucide="moon" class="moon-icon"></i>
+            </button>
+          </div>
+        </header>
+
+        <!-- Creation Area -->
+        <div class="creation-area glass-card">
+          <input type="text" id="task-input" placeholder="What's your next move?" autocomplete="off" />
+          
+          <div class="task-meta-bar">
+            <div class="meta-options">
+              <div class="meta-pill date-picker-wrap">
                 <i data-lucide="calendar"></i>
-                <input type="date" id="todo-date" />
+                <input type="date" id="task-date" />
               </div>
-              <div class="meta-item custom-dropdown" id="tag-selector">
-                <div class="selected-option">
-                  <i data-lucide="tag"></i>
-                  <span id="current-tag">No Tag</span>
+              
+              <div class="meta-pill custom-select" id="cat-select">
+                <div class="selected-val">
+                  <i data-lucide="tag"></i> <span id="selected-cat">none</span>
                 </div>
-                <div class="dropdown-options hidden">
-                  <div class="option" data-value="none">No Tag</div>
-                  <div class="option" data-value="work">Work</div>
-                  <div class="option" data-value="personal">Personal</div>
-                  <div class="option" data-value="urgent">Urgent</div>
+                <div class="options-dropdown">
+                  <div class="opt" data-val="none">None</div>
+                  <div class="opt" data-val="work">Work</div>
+                  <div class="opt" data-val="personal">Personal</div>
+                  <div class="opt" data-val="health">Health</div>
                 </div>
               </div>
-              <div class="meta-item priority-pills" id="priority-selector">
-                <button class="pill" data-value="low">Low</button>
-                <button class="pill active" data-value="medium">Med</button>
-                <button class="pill" data-value="high">High</button>
+              
+              <div class="meta-pill custom-select" id="priority-select">
+                <div class="selected-val priority-medium">
+                  <i data-lucide="flag"></i> <span id="selected-priority">medium</span>
+                </div>
+                <div class="options-dropdown">
+                  <div class="opt priority-low" data-val="low">Low</div>
+                  <div class="opt priority-medium" data-val="medium">Medium</div>
+                  <div class="opt priority-high" data-val="high">High</div>
+                  <div class="opt priority-urgent" data-val="urgent">Urgent</div>
+                </div>
               </div>
             </div>
-            <button class="add-btn" id="add-btn">
-              <span>Add</span>
-              <i data-lucide="plus"></i>
-            </button>
+            
+            <button id="add-task-btn" class="submit-btn"><i data-lucide="arrow-up"></i></button>
           </div>
         </div>
 
-        <div class="control-bar">
-          <div class="search-wrap">
-            <i data-lucide="search"></i>
-            <input type="text" id="search-input" placeholder="Search..." />
-          </div>
-          <div class="control-actions">
-            <div class="filter-tabs">
-              <button class="tab active" data-filter="all">All</button>
-              <button class="tab" data-filter="pending">Active</button>
-              <button class="tab" data-filter="completed">Done</button>
-            </div>
-            <button id="clear-completed" class="text-btn" title="Clear completed tasks">
-              <span>Clear Done</span>
-            </button>
+        <!-- Task List Filters -->
+        <div class="list-controls">
+          <div class="status-filters">
+            <button class="filter-btn active" data-status="pending">Pending</button>
+            <button class="filter-btn" data-status="completed">Completed</button>
           </div>
         </div>
 
-        <ul class="todo-list" id="todo-list">
-          <!-- Tasks injected here -->
-        </ul>
+        <!-- Tasks Container -->
+        <div class="tasks-container">
+          <ul id="task-list" class="task-list">
+            <!-- Tasks will be injected here -->
+          </ul>
+        </div>
       </main>
-    </div>
 
-    <!-- Theme Modal -->
-    <div id="theme-modal" class="modal hidden">
-      <div class="modal-content">
-        <h3>Appearance</h3>
-        <div class="theme-grid">
-          <button class="theme-option" data-theme="theme-midnight">Midnight</button>
-          <button class="theme-option" data-theme="theme-aurora">Aurora</button>
-          <button class="theme-option" data-theme="theme-crimson">Crimson</button>
-          <button class="theme-option" data-theme="theme-arctic">Arctic</button>
+      <!-- AI Suggestion Modal -->
+      <div id="ai-modal" class="modal hidden">
+        <div class="modal-backdrop"></div>
+        <div class="modal-box glass-card">
+          <div class="modal-header">
+            <h3><i data-lucide="sparkles"></i> AI Task Breaker</h3>
+            <button id="close-ai-modal" class="icon-only"><i data-lucide="x"></i></button>
+          </div>
+          <div class="modal-body">
+            <p>Enter a large goal, and our AI will break it down into actionable subtasks.</p>
+            <input type="text" id="ai-goal-input" class="glass-input" placeholder="e.g., Launch a new startup..." />
+            <div id="ai-loading" class="hidden">
+              <div class="spinner"></div> Generating magic...
+            </div>
+            <ul id="ai-suggestions-list" class="suggestions-list hidden">
+              <!-- Suggestions go here -->
+            </ul>
+          </div>
+          <div class="modal-footer">
+            <button id="generate-ai-btn" class="glass-btn primary-glow">Generate</button>
+            <button id="add-ai-tasks-btn" class="glass-btn hidden">Add to List</button>
+          </div>
         </div>
-        <button class="icon-btn" id="close-theme-modal" style="width:100%;margin-top:1rem">Close</button>
       </div>
     </div>
 

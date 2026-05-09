@@ -1,292 +1,402 @@
-/**
- * Zinc Minimalist To-do List v3.1
- */
+const API_URL = 'http://localhost:3001/api';
 
-const API_URL = 'http://localhost:3001/api/tasks';
+// Initialize Lucide icons
+if (typeof lucide !== 'undefined') {
+  lucide.createIcons();
+}
+
+// --- STATE ---
 let tasks = [];
-let currentFilter = 'all';
-let isUpdatingOrder = false;
-let isPolling = true;
+let currentCategory = 'all';
+let currentStatus = 'pending';
 
-// Selector State
-let selectedPriority = 'medium';
-let selectedTag = 'none';
+// --- DOM ELEMENTS ---
+const taskListEl = document.getElementById('task-list');
+const taskInput = document.getElementById('task-input');
+const taskDate = document.getElementById('task-date');
+const addTaskBtn = document.getElementById('add-task-btn');
+const themeToggleBtn = document.getElementById('theme-toggle');
 
-const elements = {
-  todoList: document.getElementById('todo-list'),
-  todoInput: document.getElementById('todo-input'),
-  todoDate: document.getElementById('todo-date'),
-  addBtn: document.getElementById('add-btn'),
-  progressFill: document.getElementById('progress-fill'),
-  pendingCount: document.getElementById('pending-count'),
-  searchInput: document.getElementById('search-input'),
-  filterTabs: document.querySelectorAll('.tab'),
-  themeBtn: document.getElementById('theme-btn'),
-  themeModal: document.getElementById('theme-modal'),
-  closeThemeModal: document.getElementById('close-theme-modal'),
-  themeOptions: document.querySelectorAll('.theme-option'),
-  loadingOverlay: document.getElementById('loading-overlay'),
-  tagSelector: document.getElementById('tag-selector'),
-  currentTag: document.getElementById('current-tag'),
-  tagOptions: document.querySelector('.dropdown-options'),
-  priorityPills: document.querySelectorAll('.priority-pills .pill'),
-  clearCompleted: document.getElementById('clear-completed'),
-};
+// Custom Selects
+const catSelect = document.getElementById('cat-select');
+const selectedCatVal = document.getElementById('selected-cat');
+const prioritySelect = document.getElementById('priority-select');
+const selectedPriorityVal = document.getElementById('selected-priority');
 
-const init = async () => {
-  setupEventListeners();
-  setupCustomSelectors();
-  if (typeof Sortable !== 'undefined') setupSortable();
-  loadTheme();
-  await fetchTasks();
-  if (elements.loadingOverlay) elements.loadingOverlay.classList.add('fade-out');
+// Filters
+const filterBtns = document.querySelectorAll('.filter-btn');
+const categoryBtns = document.querySelectorAll('#category-list li');
+const viewTitle = document.getElementById('view-title');
 
-  setInterval(() => {
-    if (isPolling && !isUpdatingOrder && !isInputFocused()) fetchTasks(true);
-  }, 5000);
-};
+// Stats
+const progressCircle = document.getElementById('progress-circle');
+const progressText = document.getElementById('progress-text');
+const statsSummary = document.getElementById('stats-summary');
 
-const isInputFocused = () => document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'SELECT');
+// AI Modal
+const aiModal = document.getElementById('ai-modal');
+const aiSuggestBtn = document.getElementById('ai-suggest-btn');
+const closeAiModalBtn = document.getElementById('close-ai-modal');
+const generateAiBtn = document.getElementById('generate-ai-btn');
+const aiGoalInput = document.getElementById('ai-goal-input');
+const aiLoading = document.getElementById('ai-loading');
+const aiSuggestionsList = document.getElementById('ai-suggestions-list');
+const addAiTasksBtn = document.getElementById('add-ai-tasks-btn');
 
-const setupCustomSelectors = () => {
-  elements.priorityPills.forEach(pill => {
-    pill.addEventListener('click', () => {
-      elements.priorityPills.forEach(p => p.classList.remove('active'));
-      pill.classList.add('active');
-      selectedPriority = pill.dataset.value;
-    });
+// --- INIT ---
+document.getElementById('current-date').textContent = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+createParticles();
+fetchTasks();
+
+// --- PARTICLES ---
+function createParticles() {
+  const container = document.getElementById('particles-container');
+  if (!container) return;
+  for (let i = 0; i < 30; i++) {
+    const p = document.createElement('div');
+    p.classList.add('particle');
+    p.style.width = `${Math.random() * 4 + 1}px`;
+    p.style.height = p.style.width;
+    p.style.left = `${Math.random() * 100}vw`;
+    p.style.animationDuration = `${Math.random() * 20 + 10}s`;
+    p.style.animationDelay = `${Math.random() * 10}s`;
+    container.appendChild(p);
+  }
+}
+
+// --- THEME ---
+if (themeToggleBtn) {
+  themeToggleBtn.addEventListener('click', () => {
+    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    document.documentElement.setAttribute('data-theme', isDark ? 'light' : 'dark');
   });
+}
 
-  elements.tagSelector.addEventListener('click', (e) => {
+// --- CUSTOM SELECTS ---
+function setupCustomSelect(selectEl, valueEl) {
+  if (!selectEl) return;
+  selectEl.addEventListener('click', (e) => {
     e.stopPropagation();
-    elements.tagOptions.classList.toggle('hidden');
+    document.querySelectorAll('.custom-select').forEach(el => {
+      if (el !== selectEl) el.classList.remove('open');
+    });
+    selectEl.classList.toggle('open');
   });
 
-  document.querySelectorAll('.option').forEach(opt => {
+  const opts = selectEl.querySelectorAll('.opt');
+  opts.forEach(opt => {
     opt.addEventListener('click', (e) => {
       e.stopPropagation();
-      selectedTag = opt.dataset.value;
-      elements.currentTag.innerText = opt.innerText;
-      elements.tagOptions.classList.add('hidden');
+      const val = opt.getAttribute('data-val');
+      const text = opt.textContent;
+      valueEl.textContent = text;
+      
+      // Inherit priority classes
+      if(selectEl.id === 'priority-select') {
+        const selectedValContainer = selectEl.querySelector('.selected-val');
+        selectedValContainer.className = `selected-val priority-${val}`;
+      }
+      
+      selectEl.dataset.current = val;
+      selectEl.classList.remove('open');
     });
   });
+}
+setupCustomSelect(catSelect, selectedCatVal);
+setupCustomSelect(prioritySelect, selectedPriorityVal);
+if (catSelect) catSelect.dataset.current = 'none';
+if (prioritySelect) prioritySelect.dataset.current = 'medium';
 
-  document.addEventListener('click', () => elements.tagOptions.classList.add('hidden'));
-};
+document.addEventListener('click', () => {
+  document.querySelectorAll('.custom-select').forEach(el => el.classList.remove('open'));
+});
 
-const setupSortable = () => {
-  new Sortable(elements.todoList, {
-    animation: 200,
-    ghostClass: 'dragging',
-    onStart: () => { isPolling = false; },
-    onEnd: async () => {
-      await persistNewOrder();
-      isPolling = true;
-    }
-  });
-};
-
-const persistNewOrder = async () => {
-  if (isUpdatingOrder) return;
-  isUpdatingOrder = true;
-  const itemEls = Array.from(elements.todoList.querySelectorAll('.todo-item'));
-  const newOrders = itemEls.map((el, index) => ({ id: parseInt(el.dataset.id), order: index }));
-  newOrders.forEach(({ id, order }) => {
-    const t = tasks.find(x => x.id === id);
-    if (t) t.order = order;
-  });
+// --- API & TASKS ---
+async function fetchTasks() {
   try {
-    await fetch(`${API_URL}/reorder`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ orders: newOrders })
-    });
-  } catch (err) { console.error(err); } finally { isUpdatingOrder = false; }
-};
-
-const fetchTasks = async (isBg = false) => {
-  try {
-    const res = await fetch(API_URL);
-    const data = await res.json();
-    if (JSON.stringify(data) !== JSON.stringify(tasks)) {
-      tasks = data;
-      renderTasks();
-    }
+    const res = await fetch(`${API_URL}/tasks`);
+    tasks = await res.json();
+    renderTasks();
+    updateStats();
   } catch (err) {
-    if (!isBg) {
-      tasks = JSON.parse(localStorage.getItem('todolist_zinc')) || [];
-      renderTasks();
-    }
+    console.error('Error fetching tasks:', err);
   }
-};
+}
 
-const saveTask = async (task) => {
+async function handleAddTask() {
+  if (!taskInput) return;
+  const text = taskInput.value.trim();
+  if (!text) return;
+
+  const newTask = {
+    text,
+    date: taskDate ? taskDate.value : '',
+    category: catSelect ? catSelect.dataset.current : 'none',
+    priority: prioritySelect ? prioritySelect.dataset.current : 'medium',
+    completed: false
+  };
+
   try {
-    const res = await fetch(API_URL, {
+    const res = await fetch(`${API_URL}/tasks`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(task)
+      body: JSON.stringify(newTask)
     });
-    const data = await res.json();
-    tasks.unshift(data);
-    syncLocal();
+    const created = await res.json();
+    tasks.unshift(created);
+    taskInput.value = '';
+    if (taskDate) taskDate.value = '';
     renderTasks();
-    showNotification('Task Added', 'success');
-  } catch (err) { showNotification('Error adding task', 'error'); }
-};
-
-const updateTaskInDB = async (id, updates) => {
-  const i = tasks.findIndex(t => t.id === id);
-  if (i !== -1) {
-    tasks[i] = { ...tasks[i], ...updates };
-    renderTasks();
-    try {
-      await fetch(`${API_URL}/${id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updates)
-      });
-      syncLocal();
-    } catch (err) { fetchTasks(); }
+    updateStats();
+  } catch (err) {
+    console.error('Failed to create task');
   }
-};
+}
 
-const deleteTask = async (id) => {
-  tasks = tasks.filter(t => t.id !== id);
-  renderTasks();
+if (addTaskBtn) addTaskBtn.addEventListener('click', handleAddTask);
+if (taskInput) {
+  taskInput.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') handleAddTask();
+  });
+}
+
+async function toggleTaskCompletion(id, isCompleted) {
   try {
-    await fetch(`${API_URL}/${id}`, { method: 'DELETE' });
-    syncLocal();
-  } catch (err) { fetchTasks(); }
-};
+    const res = await fetch(`${API_URL}/tasks/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ completed: !isCompleted })
+    });
+    const updated = await res.json();
+    const index = tasks.findIndex(t => t._id === id);
+    if (index !== -1) tasks[index] = updated;
+    renderTasks();
+    updateStats();
+  } catch (err) {
+    console.error('Failed to update task');
+  }
+}
 
-const deleteCompletedTasks = async () => {
-  const completedIds = tasks.filter(t => t.completed).map(t => t.id);
-  if (completedIds.length === 0) return;
-  
-  if (!confirm(`Are you sure you want to delete ${completedIds.length} completed tasks?`)) return;
-
-  tasks = tasks.filter(t => !t.completed);
-  renderTasks();
-  
+async function deleteTask(id) {
   try {
-    // We send a request to delete each or a bulk delete if API supports it
-    // For now, let's assume we delete them one by one or the server handles it
-    for (const id of completedIds) {
-      await fetch(`${API_URL}/${id}`, { method: 'DELETE' });
-    }
-    syncLocal();
-    showNotification('Cleared completed tasks', 'success');
-  } catch (err) { fetchTasks(); }
-};
+    await fetch(`${API_URL}/tasks/${id}`, { method: 'DELETE' });
+    tasks = tasks.filter(t => t._id !== id);
+    renderTasks();
+    updateStats();
+  } catch (err) {
+    console.error('Failed to delete task');
+  }
+}
 
-const syncLocal = () => localStorage.setItem('todolist_zinc', JSON.stringify(tasks));
+// --- RENDER ---
+function renderTasks() {
+  if (!taskListEl) return;
+  taskListEl.innerHTML = '';
+  
+  let filtered = tasks;
+  if (currentCategory !== 'all') {
+    filtered = filtered.filter(t => t.category === currentCategory);
+  }
+  if (currentStatus === 'pending') {
+    filtered = filtered.filter(t => !t.completed);
+  } else {
+    filtered = filtered.filter(t => t.completed);
+  }
 
-const renderTasks = () => {
-  const query = elements.searchInput.value.toLowerCase();
-  const filtered = tasks.filter(t => {
-    const mSearch = t.text.toLowerCase().includes(query) || (t.tag && t.tag.toLowerCase().includes(query));
-    const mTab = currentFilter === 'all' || (currentFilter === 'pending' && !t.completed) || (currentFilter === 'completed' && t.completed);
-    return mSearch && mTab;
-  }).sort((a, b) => (a.order || 0) - (b.order || 0));
+  if (filtered.length === 0) {
+    taskListEl.innerHTML = `<li style="text-align:center; padding: 2rem; color: var(--text-secondary);">No tasks here yet.</li>`;
+    return;
+  }
 
-  elements.todoList.innerHTML = '';
-  filtered.forEach(t => elements.todoList.appendChild(createTaskElement(t)));
-  updateStats();
-  if (typeof lucide !== 'undefined') lucide.createIcons();
-};
-
-const createTaskElement = (task) => {
-  const li = document.createElement('li');
-  li.className = `todo-item ${task.priority} ${task.completed ? 'completed' : ''}`;
-  li.dataset.id = task.id;
-
-  const dateStr = task.date ? new Date(task.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : '';
-  const tagHtml = task.tag && task.tag !== 'none' ? `<span class="badge">${task.tag}</span>` : '';
-
-  li.innerHTML = `
-    <div class="todo-checkbox">
-      <i data-lucide="check"></i>
-    </div>
-    <div class="todo-content">
-      <div class="todo-main-row">
-        <span class="todo-title">${task.text}</span>
-        <div class="todo-details">
-          <span class="priority-${task.priority}">${task.priority}</span>
-          ${tagHtml}
-          ${dateStr ? `<span>${dateStr}</span>` : ''}
+  filtered.forEach(task => {
+    const li = document.createElement('li');
+    li.className = `task-item ${task.completed ? 'completed' : ''}`;
+    
+    let dateStr = task.date ? new Date(task.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '';
+    
+    li.innerHTML = `
+      <input type="checkbox" class="task-checkbox" ${task.completed ? 'checked' : ''} data-id="${task._id}">
+      <div class="task-content">
+        <span class="task-text">${task.text}</span>
+        <div class="task-details">
+          ${dateStr ? `<span class="task-badge"><i data-lucide="calendar" style="width:12px;height:12px;"></i> ${dateStr}</span>` : ''}
+          ${task.category !== 'none' && task.category ? `<span class="task-badge cat-${task.category}"><i data-lucide="tag" style="width:12px;height:12px;"></i> ${task.category}</span>` : ''}
+          <span class="task-badge priority-${task.priority}"><i data-lucide="flag" style="width:12px;height:12px;"></i> ${task.priority}</span>
         </div>
       </div>
-    </div>
-    <div class="item-actions">
-      <button class="icon-btn delete" title="Delete"><i data-lucide="trash-2"></i></button>
-    </div>
-  `;
-
-  li.querySelector('.todo-checkbox').addEventListener('click', () => updateTaskInDB(task.id, { completed: !task.completed }));
-  li.querySelector('.delete').addEventListener('click', (e) => { e.stopPropagation(); deleteTask(task.id); });
-
-  return li;
-};
-
-const updateStats = () => {
-  const total = tasks.length;
-  const completed = tasks.filter(t => t.completed).length;
-  const pending = total - completed;
-  const percent = total === 0 ? 0 : Math.round((completed / total) * 100);
-  if (elements.pendingCount) elements.pendingCount.innerText = pending;
-  if (elements.progressFill) elements.progressFill.style.width = `${percent}%`;
-};
-
-const loadTheme = () => {
-  const saved = localStorage.getItem('todo-theme-zinc') || 'theme-midnight';
-  document.body.className = saved;
-};
-
-const setTheme = (theme) => {
-  document.body.className = theme;
-  localStorage.setItem('todo-theme-zinc', theme);
-  elements.themeModal.classList.add('hidden');
-};
-
-const showNotification = (msg, type = 'info') => {
-  const c = document.querySelector('.notification-container') || (() => {
-    const div = document.createElement('div');
-    div.className = 'notification-container';
-    document.body.appendChild(div);
-    return div;
-  })();
-  const n = document.createElement('div');
-  n.className = `notification ${type}`;
-  n.innerText = msg;
-  c.appendChild(n);
-  setTimeout(() => { n.style.opacity = '0'; setTimeout(() => n.remove(), 500); }, 3000);
-};
-
-const setupEventListeners = () => {
-  elements.addBtn.addEventListener('click', () => {
-    const text = elements.todoInput.value.trim();
-    if (text) {
-      saveTask({ text, date: elements.todoDate.value, tag: selectedTag, priority: selectedPriority, completed: false });
-      elements.todoInput.value = '';
-      selectedTag = 'none';
-      elements.currentTag.innerText = 'No Tag';
-    }
+      <div class="task-actions">
+        <button class="action-btn delete" data-id="${task._id}"><i data-lucide="trash-2" style="width:18px;height:18px;"></i></button>
+      </div>
+    `;
+    taskListEl.appendChild(li);
   });
-  elements.todoInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') elements.addBtn.click(); });
-  elements.searchInput.addEventListener('input', renderTasks);
-  elements.filterTabs.forEach(tab => {
-    tab.addEventListener('click', () => {
-      elements.filterTabs.forEach(t => t.classList.remove('active'));
-      tab.classList.add('active');
-      currentFilter = tab.dataset.filter;
-      renderTasks();
+
+  if (typeof lucide !== 'undefined') lucide.createIcons();
+
+  // Attach events
+  document.querySelectorAll('.task-checkbox').forEach(cb => {
+    cb.addEventListener('change', (e) => {
+      const id = e.target.getAttribute('data-id');
+      const isCompleted = !e.target.checked; // Since we toggle
+      toggleTaskCompletion(id, isCompleted);
     });
   });
-  elements.themeBtn.addEventListener('click', () => elements.themeModal.classList.remove('hidden'));
-  elements.closeThemeModal.addEventListener('click', () => elements.themeModal.classList.add('hidden'));
-  elements.themeOptions.forEach(opt => opt.addEventListener('click', () => setTheme(opt.dataset.theme)));
-  elements.clearCompleted.addEventListener('click', deleteCompletedTasks);
-};
 
-init();
+  document.querySelectorAll('.action-btn.delete').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const id = e.currentTarget.getAttribute('data-id');
+      deleteTask(id);
+    });
+  });
+}
+
+// --- FILTERS & STATS ---
+filterBtns.forEach(btn => {
+  btn.addEventListener('click', () => {
+    filterBtns.forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentStatus = btn.getAttribute('data-status');
+    renderTasks();
+  });
+});
+
+categoryBtns.forEach(btn => {
+  btn.addEventListener('click', () => {
+    categoryBtns.forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentCategory = btn.getAttribute('data-cat');
+    if (viewTitle) viewTitle.textContent = btn.textContent.trim();
+    renderTasks();
+  });
+});
+
+function updateStats() {
+  if (!progressText || !statsSummary || !progressCircle) return;
+  const total = tasks.length;
+  const completed = tasks.filter(t => t.completed).length;
+  const percent = total === 0 ? 0 : Math.round((completed / total) * 100);
+  
+  progressText.textContent = `${percent}%`;
+  statsSummary.textContent = `${completed} of ${total} tasks completed`;
+  
+  const circumference = 2 * Math.PI * 54;
+  const offset = circumference - (percent / 100) * circumference;
+  progressCircle.style.strokeDasharray = `${circumference} ${circumference}`;
+  progressCircle.style.strokeDashoffset = offset;
+  
+  // Badges
+  const cats = { work: 0, personal: 0, health: 0 };
+  tasks.filter(t => !t.completed).forEach(t => {
+    if(cats[t.category] !== undefined) cats[t.category]++;
+  });
+  
+  categoryBtns.forEach(btn => {
+    const c = btn.getAttribute('data-cat');
+    const badge = btn.querySelector('.badge');
+    if (badge && cats[c] !== undefined) {
+      badge.textContent = cats[c] > 0 ? cats[c] : '';
+      badge.style.display = cats[c] > 0 ? 'block' : 'none';
+    }
+  });
+}
+
+// --- AI SUGGESTIONS ---
+let generatedAiTasks = [];
+
+if (aiSuggestBtn && aiModal) {
+  aiSuggestBtn.addEventListener('click', () => {
+    aiModal.classList.remove('hidden');
+    aiGoalInput.value = '';
+    aiSuggestionsList.innerHTML = '';
+    aiSuggestionsList.classList.add('hidden');
+    addAiTasksBtn.classList.add('hidden');
+  });
+}
+
+if (closeAiModalBtn && aiModal) {
+  closeAiModalBtn.addEventListener('click', () => {
+    aiModal.classList.add('hidden');
+  });
+}
+
+if (generateAiBtn) {
+  generateAiBtn.addEventListener('click', async () => {
+    const goal = aiGoalInput.value.trim();
+    if (!goal) return;
+    
+    aiLoading.classList.remove('hidden');
+    aiSuggestionsList.classList.add('hidden');
+    addAiTasksBtn.classList.add('hidden');
+    generateAiBtn.disabled = true;
+    
+    try {
+      const res = await fetch(`${API_URL}/ai/suggest`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ goal })
+      });
+      const data = await res.json();
+      generatedAiTasks = data.suggestions;
+      
+      aiSuggestionsList.innerHTML = '';
+      generatedAiTasks.forEach((sug, idx) => {
+        const li = document.createElement('li');
+        li.className = 'selected';
+        li.innerHTML = `
+          <span>${sug}</span>
+          <input type="checkbox" checked data-idx="${idx}" style="cursor:pointer">
+        `;
+        aiSuggestionsList.appendChild(li);
+      });
+      
+      aiSuggestionsList.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+        cb.addEventListener('change', (e) => {
+          const li = e.target.closest('li');
+          if(e.target.checked) li.classList.add('selected');
+          else li.classList.remove('selected');
+        });
+      });
+      
+      aiLoading.classList.add('hidden');
+      aiSuggestionsList.classList.remove('hidden');
+      addAiTasksBtn.classList.remove('hidden');
+    } catch (err) {
+      console.error('AI error', err);
+      aiLoading.classList.add('hidden');
+    } finally {
+      generateAiBtn.disabled = false;
+    }
+  });
+}
+
+if (addAiTasksBtn) {
+  addAiTasksBtn.addEventListener('click', async () => {
+    const checkboxes = aiSuggestionsList.querySelectorAll('input[type="checkbox"]:checked');
+    const selectedIndices = Array.from(checkboxes).map(cb => parseInt(cb.getAttribute('data-idx')));
+    
+    for (let idx of selectedIndices) {
+      const taskText = generatedAiTasks[idx];
+      try {
+        const res = await fetch(`${API_URL}/tasks`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            text: taskText,
+            date: '',
+            category: 'none',
+            priority: 'medium',
+            completed: false
+          })
+        });
+        const created = await res.json();
+        tasks.unshift(created);
+      } catch(err) {
+        console.error(err);
+      }
+    }
+    
+    aiModal.classList.add('hidden');
+    renderTasks();
+    updateStats();
+  });
+}

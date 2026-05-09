@@ -1,99 +1,75 @@
 const express = require('express');
 const cors = require('cors');
 const bodyParser = require('body-parser');
-const fs = require('fs');
+const mongoose = require('mongoose');
 const path = require('path');
 
 const app = express();
 const PORT = 3001;
-const DB_FILE = path.join(__dirname, 'db.json');
 
 app.use(cors());
 app.use(bodyParser.json());
 
-// Helper to read DB
-const readDB = () => {
-  if (!fs.existsSync(DB_FILE)) {
-    fs.writeFileSync(DB_FILE, JSON.stringify({ tasks: [] }));
-  }
-  const data = fs.readFileSync(DB_FILE);
-  return JSON.parse(data);
-};
+// MongoDB Connection
+mongoose.connect('mongodb://127.0.0.1:27017/todoapp')
+  .then(() => console.log('MongoDB Connected'))
+  .catch(err => console.log('MongoDB Connection Error:', err));
 
-// Helper to write DB
-const writeDB = (data) => {
-  fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2));
-};
+// Task Schema
+const taskSchema = new mongoose.Schema({
+  text: { type: String, required: true },
+  date: { type: String, default: '' },
+  time: { type: String, default: '' },
+  category: { type: String, default: 'none' }, // work, personal, health, etc.
+  priority: { type: String, default: 'medium' }, // low, medium, high, urgent
+  completed: { type: Boolean, default: false },
+  subtasks: { type: Array, default: [] },
+  order: { type: Number, default: 0 }
+}, { timestamps: true });
+
+const Task = mongoose.model('Task', taskSchema);
 
 // Routes
-app.get('/api/tasks', (req, res) => {
+app.get('/api/tasks', async (req, res) => {
   try {
-    const db = readDB();
-    // Sort by order field if it exists, otherwise use ID
-    const sortedTasks = db.tasks.sort((a, b) => (a.order || 0) - (b.order || 0));
-    res.json(sortedTasks);
+    const tasks = await Task.find().sort({ order: 1, createdAt: -1 });
+    res.json(tasks);
   } catch (err) {
     res.status(500).json({ error: 'Failed to read tasks' });
   }
 });
 
-app.post('/api/tasks', (req, res) => {
+app.post('/api/tasks', async (req, res) => {
   try {
-    const db = readDB();
-    const newTask = {
-      id: Date.now(),
-      text: req.body.text || 'Untitled Mission',
-      date: req.body.date || '',
-      time: req.body.time || '',
-      tag: req.body.tag || 'none',
-      priority: req.body.priority || 'medium',
-      completed: req.body.completed || false,
-      subtasks: req.body.subtasks || [],
-      order: db.tasks.length > 0 ? Math.min(...db.tasks.map(t => t.order || 0)) - 1 : 0,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    };
-    db.tasks.unshift(newTask);
-    writeDB(db);
-    res.status(201).json(newTask);
+    const count = await Task.countDocuments();
+    const newTask = new Task({
+      ...req.body,
+      order: count > 0 ? -(count + 1) : 0 // Ensure it appears at top
+    });
+    const savedTask = await newTask.save();
+    res.status(201).json(savedTask);
   } catch (err) {
     res.status(500).json({ error: 'Failed to create task' });
   }
 });
 
-app.put('/api/tasks/reorder', (req, res) => {
+app.put('/api/tasks/reorder', async (req, res) => {
   try {
-    const { orders } = req.body; // Array of {id, order}
-    const db = readDB();
-    
-    orders.forEach(({ id, order }) => {
-      const task = db.tasks.find(t => t.id === id);
-      if (task) {
-        task.order = order;
-        task.updatedAt = new Date().toISOString();
-      }
-    });
-
-    writeDB(db);
+    const { orders } = req.body; // Array of {_id, order}
+    for (let { _id, order } of orders) {
+      await Task.findByIdAndUpdate(_id, { order });
+    }
     res.json({ message: 'Order updated successfully' });
   } catch (err) {
     res.status(500).json({ error: 'Failed to reorder tasks' });
   }
 });
 
-app.put('/api/tasks/:id', (req, res) => {
+app.put('/api/tasks/:id', async (req, res) => {
   try {
-    const db = readDB();
-    const id = parseInt(req.params.id);
-    const index = db.tasks.findIndex(t => t.id === id);
-    if (index !== -1) {
-      db.tasks[index] = { 
-        ...db.tasks[index], 
-        ...req.body, 
-        updatedAt: new Date().toISOString() 
-      };
-      writeDB(db);
-      res.json(db.tasks[index]);
+    const updatedTask = await Task.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    if (updatedTask) {
+      res.json(updatedTask);
     } else {
       res.status(404).send('Task not found');
     }
@@ -102,16 +78,30 @@ app.put('/api/tasks/:id', (req, res) => {
   }
 });
 
-app.delete('/api/tasks/:id', (req, res) => {
+app.delete('/api/tasks/:id', async (req, res) => {
   try {
-    const db = readDB();
-    const id = parseInt(req.params.id);
-    db.tasks = db.tasks.filter(t => t.id !== id);
-    writeDB(db);
+    await Task.findByIdAndDelete(req.params.id);
     res.status(204).send();
   } catch (err) {
     res.status(500).json({ error: 'Failed to delete task' });
   }
+});
+
+// AI Mock Endpoint
+app.post('/api/ai/suggest', (req, res) => {
+  const { goal } = req.body;
+  if (!goal) return res.status(400).json({ error: 'Goal is required' });
+  
+  setTimeout(() => {
+    res.json({
+      suggestions: [
+        `Initial research on ${goal}`,
+        `Break down ${goal} into phases`,
+        `Execute first phase of ${goal}`,
+        `Review and finalize`
+      ]
+    });
+  }, 1000); // simulate delay
 });
 
 app.listen(PORT, () => {
